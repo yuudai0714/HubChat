@@ -3,6 +3,8 @@
 // ============================================================
 
 const { app, BrowserWindow, ipcMain, shell, session } = require('electron')
+const { autoUpdater } = require("electron-updater")
+
 
 // ── 許可ドメインリスト（アプリ内で開く） ──
 const ALLOWED_DOMAINS = [
@@ -387,4 +389,53 @@ ipcMain.handle('verify-license', async (event, key) => {
 
 ipcMain.handle('open-external', (event, url) => {
   shell.openExternal(url)
+})
+
+// ============================================
+// 自動アップデート（electron-updater）
+// ============================================
+app.on('ready', () => {
+  setTimeout(() => {
+    autoUpdater.logger = require('electron').app.getPath ? console : console
+    autoUpdater.autoDownload = false
+    autoUpdater.checkForUpdates().catch(err => console.log('[AutoUpdater] check error:', err))
+  }, 5000)
+})
+
+autoUpdater.on('update-available', (info) => {
+  console.log('[AutoUpdater] update available:', info.version)
+  const { dialog } = require('electron')
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'アップデート',
+    message: `新しいバージョン v${info.version} が利用可能です。ダウンロードしますか？`,
+    buttons: ['ダウンロード', 'あとで']
+  }).then(result => {
+    if (result.response === 0) autoUpdater.downloadUpdate()
+  })
+})
+
+autoUpdater.on('update-not-available', () => {
+  console.log('[AutoUpdater] no update available')
+})
+
+autoUpdater.on('download-progress', (progress) => {
+  console.log(`[AutoUpdater] download: ${Math.round(progress.percent)}%`)
+})
+
+autoUpdater.on('update-downloaded', () => {
+  console.log('[AutoUpdater] download complete')
+  const { dialog } = require('electron')
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'アップデート完了',
+    message: 'アップデートのダウンロードが完了しました。再起動して適用しますか？',
+    buttons: ['再起動', 'あとで']
+  }).then(result => {
+    if (result.response === 0) autoUpdater.quitAndInstall()
+  })
+})
+
+autoUpdater.on('error', (err) => {
+  console.log('[AutoUpdater] error:', err.message)
 })
