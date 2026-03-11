@@ -445,6 +445,14 @@ ipcMain.on('update-dock-badge', (event, count) => {
   if (process.platform === 'darwin') {
     app.dock.setBadge(count > 0 ? String(count) : '')
   }
+  if (process.platform === "win32" && mainWindow) {
+    if (count > 0) {
+      mainWindow.setOverlayIcon(null, String(count))
+      mainWindow.flashFrame(true)
+    } else {
+      mainWindow.setOverlayIcon(null, "")
+    }
+  }
 })
 
 // OS通知統合
