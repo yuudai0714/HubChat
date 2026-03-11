@@ -1,0 +1,360 @@
+// ============================================================
+// HubChat - メインプロセス (main.js) v1.9
+// ============================================================
+
+const { app, BrowserWindow, ipcMain, shell, session } = require('electron')
+
+// ── 許可ドメインリスト（アプリ内で開く） ──
+const ALLOWED_DOMAINS = [
+  'slack.com','mail.google.com','outlook.live.com','outlook.office.com','login.microsoftonline.com',
+  'teams.microsoft.com','discord.com','chatwork.com','chat.google.com',
+  'line.worksmobile.com','chat.line.biz','manager.line.biz',
+  'instagram.com','messenger.com','x.com','twitter.com',
+  'whatsapp.com','skype.com','telegram.org',
+  'accounts.google.com','login.live.com','appleid.apple.com',
+  'github.com','notion.so','trello.com','asana.com',
+  'zoom.us','calendar.google.com','drive.google.com',
+  'ydk-business.com'
+]
+
+function isAllowedDomain(url) {
+  try {
+    const hostname = new URL(url).hostname
+    return ALLOWED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
+  } catch { return false }
+}
+
+const path = require('path')
+const Store = require('electron-store')
+
+const store = new Store()
+let mainWindow
+
+const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
+
+const BROWSER_SPOOF_JS = `
+(function() {
+  try {
+    Object.defineProperty(navigator, 'userAgentData', {
+      get: function() {
+        return {
+          brands: [
+            { brand: "Chromium", version: "137" },
+            { brand: "Google Chrome", version: "137" },
+            { brand: "Not=A?Brand", version: "24" }
+          ],
+          mobile: false,
+          platform: "macOS",
+          getHighEntropyValues: function(hints) {
+            return Promise.resolve({
+              brands: [
+                { brand: "Chromium", version: "137" },
+                { brand: "Google Chrome", version: "137" },
+                { brand: "Not=A?Brand", version: "24" }
+              ],
+              mobile: false,
+              platform: "macOS",
+              platformVersion: "15.0.0",
+              architecture: "x86",
+              bitness: "64",
+              model: "",
+              uaFullVersion: "137.0.0.0",
+              fullVersionList: [
+                { brand: "Chromium", version: "137.0.0.0" },
+                { brand: "Google Chrome", version: "137.0.0.0" },
+                { brand: "Not=A?Brand", version: "24.0.0.0" }
+              ]
+            });
+          },
+          toJSON: function() {
+            return {
+              brands: [
+                { brand: "Chromium", version: "137" },
+                { brand: "Google Chrome", version: "137" },
+                { brand: "Not=A?Brand", version: "24" }
+              ],
+              mobile: false,
+              platform: "macOS"
+            };
+          }
+        };
+      }
+    });
+    delete window.process;
+    delete window.require;
+    delete window.__electron_contextBridge;
+  } catch(e) {}
+})();
+`
+
+// WebAuthn が要求されたときにパスワード認証にフォールバックさせるスクリプト
+const MS_WEBAUTHN_BYPASS_JS = `
+(function() {
+  try {
+    // WebAuthn API を無効化して、Microsoft にパスワード認証へフォールバックさせる
+    if (navigator.credentials) {
+      navigator.credentials.get = function() {
+        return Promise.reject(new DOMException('WebAuthn not supported', 'NotAllowedError'));
+      };
+      navigator.credentials.create = function() {
+        return Promise.reject(new DOMException('WebAuthn not supported', 'NotAllowedError'));
+      };
+    }
+    // PublicKeyCredential を未定義にする
+    Object.defineProperty(window, 'PublicKeyCredential', {
+      get: function() { return undefined; },
+      configurable: true
+    });
+  } catch(e) {}
+})();
+`
+
+function applySessionFixes(ses) {
+  if (ses._hubchatFixed) return
+  ses._hubchatFixed = true
+
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    details.requestHeaders['User-Agent'] = CHROME_UA
+    callback({ requestHeaders: details.requestHeaders })
+  })
+
+  ses.webRequest.onHeadersReceived((details, callback) => {
+    const headers = details.responseHeaders
+    if (headers) {
+      delete headers['content-security-policy']
+      delete headers['Content-Security-Policy']
+      delete headers['content-security-policy-report-only']
+      delete headers['Content-Security-Policy-Report-Only']
+      delete headers['x-frame-options']
+      delete headers['X-Frame-Options']
+    }
+    callback({ responseHeaders: headers })
+  })
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    icon: require('path').join(__dirname, 'build', 'icon.png'),
+    width: 1200,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    backgroundColor: '#1e1e2e',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webviewTag: true,
+    },
+  })
+
+  mainWindow.webContents.setUserAgent(CHROME_UA)
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const currentUrl = mainWindow.webContents.getURL()
+    // 認証URLはポップアップ許可（Google OAuth等）
+    if (isAuthUrl(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 500, height: 700,
+          webPreferences: { nodeIntegration: false, contextIsolation: false }
+        }
+      }
+    }
+    // 同じドメイン → 現在のwebviewでナビゲート指示
+    if (isSameDomain(currentUrl, url)) {
+      mainWindow.webContents.send('navigate-in-service', url)
+      return { action: 'deny' }
+    }
+    // 追加済みサービスのドメイン → そのタブに切替指示
+    if (isAddedServiceDomain(url)) {
+      mainWindow.webContents.send('switch-to-service', url)
+      return { action: 'deny' }
+    }
+    // その他 → 外部ブラウザ
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+
+  mainWindow.webContents.on('did-attach-webview', (event, webviewContents) => {
+    const ses = webviewContents.session
+    applySessionFixes(ses)
+    webviewContents.setUserAgent(CHROME_UA)
+
+    // webview内のwindow.openを制御
+    webviewContents.setWindowOpenHandler(({ url: popupUrl }) => {
+      if (!popupUrl || popupUrl === 'about:blank') return { action: 'deny' }
+      const authDomains = ['accounts.google.com','login.microsoftonline.com','login.live.com','appleid.apple.com','auth.line.me','access.line.me','oauth.line.me']
+      try {
+        const h = new URL(popupUrl).hostname
+        // 認証URL → ポップアップ許可
+        if (authDomains.some(d => h === d || h.endsWith('.' + d))) {
+          return { action: 'allow', overrideBrowserWindowOptions: { width: 500, height: 700, webPreferences: { nodeIntegration: false, contextIsolation: false } } }
+        }
+        // 同じドメイン → レンダラーにwebview内ナビゲート指示
+        const currentHost = new URL(webviewContents.getURL()).hostname
+        const linkBase = h.split('.').slice(-2).join('.')
+        const curBase = currentHost.split('.').slice(-2).join('.')
+        if (linkBase === curBase) {
+          mainWindow.webContents.send('navigate-in-service', popupUrl)
+          return { action: 'deny' }
+        }
+        // 追加済みサービス → タブ切替指示
+        if (addedServiceDomains && addedServiceDomains.some(d => h === d || h.endsWith('.' + d) || linkBase === d.split('.').slice(-2).join('.'))) {
+          mainWindow.webContents.send('switch-to-service', popupUrl)
+          return { action: 'deny' }
+        }
+      } catch(e) {}
+      // その他 → 外部ブラウザ
+      shell.openExternal(popupUrl)
+      return { action: 'deny' }
+    })
+
+    webviewContents.on('did-start-loading', () => {
+      webviewContents.executeJavaScript(BROWSER_SPOOF_JS).catch(() => {})
+    })
+
+    webviewContents.on('dom-ready', () => {
+      webviewContents.executeJavaScript(BROWSER_SPOOF_JS).catch(() => {})
+      // Microsoft 認証ページでは WebAuthn を無効化
+      const url = webviewContents.getURL()
+      if (url.includes('login.microsoftonline.com') || url.includes('login.live.com')) {
+        webviewContents.executeJavaScript(MS_WEBAUTHN_BYPASS_JS).catch(() => {})
+        console.log('[HubChat] WebAuthn bypass injected for:', url)
+      }
+    })
+
+    // ナビゲーション時にも注入
+    webviewContents.on('did-navigate', (e, url) => {
+      if (url.includes('login.microsoftonline.com') || url.includes('login.live.com')) {
+        webviewContents.executeJavaScript(MS_WEBAUTHN_BYPASS_JS).catch(() => {})
+        console.log('[HubChat] WebAuthn bypass injected on navigate:', url)
+      }
+    })
+
+    webviewContents.on('did-navigate-in-page', (e, url) => {
+      if (url.includes('login.microsoftonline.com') || url.includes('login.live.com')) {
+        webviewContents.executeJavaScript(MS_WEBAUTHN_BYPASS_JS).catch(() => {})
+      }
+    })
+  })
+
+  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'))
+}
+
+app.whenReady().then(() => {
+  app.userAgentFallback = CHROME_UA
+  applySessionFixes(session.defaultSession)
+
+  createWindow()
+
+  // 追加済みサービスのドメインリストを受信
+  ipcMain.on('update-service-domains', (event, domains) => {
+    addedServiceDomains = domains || []
+    console.log('[HubChat-main] received domains:', addedServiceDomains)
+  })
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
+})
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit()
+})
+
+  // 追加済みサービスのドメインリストを受信
+  ipcMain.on('update-service-domains', (event, domains) => {
+    addedServiceDomains = domains || []
+  })
+
+  ipcMain.handle('open-popup', (event, { url, partition }) => {
+  const ses = session.fromPartition(partition || 'persist:default')
+  applySessionFixes(ses)
+
+  const popup = new BrowserWindow({
+    width: 1000,
+    height: 750,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: false,
+      partition: partition || 'persist:default',
+    }
+  })
+
+  popup.webContents.setUserAgent(CHROME_UA)
+
+  popup.webContents.setWindowOpenHandler(({ url: innerUrl }) => {
+    const currentUrl = popup.webContents.getURL()
+    if (isSameDomain(currentUrl, innerUrl) || isAuthUrl(innerUrl)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 900,
+          height: 700,
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: false,
+            partition: partition || 'persist:default',
+          }
+        }
+      }
+    }
+    shell.openExternal(innerUrl)
+    return { action: 'deny' }
+  })
+
+  popup.loadURL(url)
+})
+
+ipcMain.handle('store-get', (event, key, defaultValue) => {
+  return store.get(key, defaultValue)
+})
+
+ipcMain.handle('store-set', (event, key, value) => {
+  store.set(key, value)
+})
+
+ipcMain.handle('store-delete', (event, key) => {
+  store.delete(key)
+})
+
+ipcMain.handle('store-clear', () => {
+  store.clear()
+})
+
+
+ipcMain.handle('verify-license', async (event, key) => {
+  try {
+    const net = require('electron').net
+    return new Promise((resolve) => {
+      const postData = JSON.stringify({ action: 'verify', key: key })
+      const request = net.request({
+        method: 'POST',
+        url: 'https://ydk-business.com/hubchat/api/license.php',
+      })
+      request.setHeader('Content-Type', 'application/json')
+      let body = ''
+      request.on('response', (response) => {
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          try { resolve(JSON.parse(body)) }
+          catch(e) { resolve({ status: 'error', message: 'Parse error' }) }
+        })
+      })
+      request.on('error', (err) => {
+        resolve({ status: 'error', message: err.message })
+      })
+      request.write(postData)
+      request.end()
+    })
+  } catch(e) {
+    return { status: 'error', message: e.message }
+  }
+})
+
+ipcMain.handle('open-external', (event, url) => {
+  shell.openExternal(url)
+})

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'">
+  <title>HubChat</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="drag-bar"></div>
+<div id="app">
+
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <div id="app-logo" title="HubChat"><img src="logo.png" alt="HubChat" style="width:28px;height:28px;border-radius:6px;"></div>
+    </div>
+    <div id="sidebar-services"></div>
+    <div id="sidebar-footer">
+      <div class="sidebar-divider"></div>
+      <button id="add-btn" class="sidebar-icon-btn" title="サービスを追加">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+      <button id="help-btn" class="sidebar-icon-btn" title="ヘルプ">?</button>
+      <button id="plan-btn" class="sidebar-icon-btn" title="プラン" style="font-size:14px;">♛</button>
+      <button id="settings-btn" class="sidebar-icon-btn" title="設定">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="main-content">
+
+    <div id="welcome-screen">
+      <div class="welcome-inner">
+        <div class="welcome-logo"><img src="logo.png" alt="HubChat" style="width:64px;height:64px;border-radius:12px;"></div>
+        <h1>HubChatへようこそ</h1>
+        <p>左下の <strong>＋</strong> ボタンからサービスを追加してください</p>
+        <button id="welcome-add-btn" class="primary-btn">サービスを追加する</button>
+      </div>
+    </div>
+
+    <div id="webview-container" style="display:none">
+
+      <!-- ホバーでツールバーを表示するトリガー -->
+      <div id="nav-trigger"></div>
+
+      <!-- ナビゲーションツールバー（オーバーレイ） -->
+      <div id="nav-toolbar">
+        <button id="nav-back" class="nav-btn" title="戻る">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <button id="nav-forward" class="nav-btn" title="進む">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+        <button id="nav-reload" class="nav-btn" title="再読み込み">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
+        <span id="nav-url"></span>
+      </div>
+
+      <div id="popup-overlay">
+        <div id="popup-toolbar">
+          <button id="popup-back-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            戻る
+          </button>
+          <span id="popup-title"></span>
+          <button id="popup-close-btn" style="padding:5px 12px;background:rgba(255,255,255,0.1);border:none;border-radius:6px;color:#fff;font-size:13px;cursor:pointer;">✕ 閉じる</button>
+        </div>
+        <webview id="popup-webview" allowpopups></webview>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<div id="service-modal" class="modal hidden">
+  <div class="modal-overlay" id="modal-overlay"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>サービスを追加</h2>
+      <button class="close-btn" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div id="settings-modal" class="modal hidden">
+  <div class="modal-overlay" id="settings-overlay"></div>
+  <div class="modal-box modal-narrow">
+    <div class="modal-header">
+      <h2>設定</h2>
+      <button class="close-btn" id="settings-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-section">
+        <h3>テーマ</h3>
+        <div class="theme-btns">
+          <button class="theme-btn" data-theme="dark">🌙 ダーク</button>
+          <button class="theme-btn" data-theme="light">☀️ ライト</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>追加済みサービス</h3>
+        <div id="service-manage-list"></div>
+      </div>
+      <div class="settings-section">
+        <h3>プラン</h3>
+        <div id="license-section">
+          <div id="license-status" style="margin-bottom:12px;font-size:13px;color:var(--text-sub);">現在のプラン: <strong>フリー</strong>（3サービスまで）</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+            <input type="text" id="license-key-input" placeholder="ライセンスキーを入力" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--bg-hover);background:var(--bg-main);color:var(--text-main);font-size:13px;">
+            <button id="license-verify-btn" style="padding:8px 16px;background:var(--accent);color:#11111b;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">認証</button>
+          </div>
+          <button id="license-upgrade-btn" style="width:100%;padding:10px;background:#06C755;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">プロプランにアップグレード（月額550円）</button>
+        </div>
+      </div>
+      <div class="settings-section settings-danger">
+        <h3>データ管理</h3>
+        <button id="reset-btn" class="danger-btn">全データをリセット</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<div id="ctx-menu" class="ctx-menu hidden">
+  <div id="ctx-hide">👁 非表示にする</div>
+  <div id="ctx-remove" class="ctx-danger">🗑 削除する</div>
+</div>
+
+<script src="app.js"></script>
+  <!-- Help / Q&A Modal -->
+  <div id="plan-modal" class="modal hidden">
+  <div class="modal-overlay" id="plan-overlay"></div>
+  <div class="modal-box modal-narrow">
+    <div class="modal-header">
+      <h2>プラン</h2>
+      <button class="close-btn" id="plan-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="plan-status" style="margin-bottom:12px;font-size:13px;color:var(--text-sub);">現在のプラン：<strong>フリー</strong>（3サービスまで）</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" id="plan-key-input" placeholder="ライセンスキーを入力" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--bg-hover);background:var(--bg-main);color:var(--text-main);font-size:13px;">
+        <button id="plan-verify-btn" style="padding:8px 16px;background:var(--accent);color:#11111b;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">認証</button>
+      </div>
+      <button id="plan-upgrade-btn" style="width:100%;padding:10px;background:#06C755;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">プロプランにアップグレード（月額550円）</button>
+    </div>
+  </div>
+</div>
+
+<div id="help-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="help-modal-content">
+      <div class="help-header">
+        <h2>ヘルプ・Q&A</h2>
+        <button id="help-close-btn" class="modal-close-btn">✕</button>
+      </div>
+      <div class="help-body">
+        <div class="help-nav">
+          <button class="help-nav-btn active" data-section="basic">基本操作</button>
+          <button class="help-nav-btn" data-section="nav">ナビゲーション</button>
+          <button class="help-nav-btn" data-section="microsoft">Microsoft系</button>
+          <button class="help-nav-btn" data-section="slack">Slack</button>
+          <button class="help-nav-btn" data-section="theme">テーマ</button>
+          <button class="help-nav-btn" data-section="trouble">トラブル</button>
+          <button class="help-nav-btn" data-section="contact">お問い合わせ</button>
+        </div>
+        <div class="help-content">
+          <div class="help-section active" id="help-basic">
+            <h3>サービスの追加</h3>
+            <p>左下の <strong>＋</strong> ボタンをクリックし、追加したいサービスを選択します。カテゴリタブで絞り込みも可能です。</p>
+            <h3>サービスの切り替え</h3>
+            <p>左サイドバーのアイコンをクリックすると、そのサービスに切り替わります。</p>
+            <h3>サービスの並び替え</h3>
+            <p>サイドバーのアイコンを<strong>ドラッグ＆ドロップ</strong>で好きな順番に並び替えられます。</p>
+            <h3>サービスの削除・非表示</h3>
+            <p>サイドバーのアイコンを<strong>右クリック</strong>すると、メニューが表示されます。「非表示」でサイドバーから隠し、「削除」で完全に除去できます。</p>
+            <h3>ショートカットキー</h3>
+            <p><strong>Cmd+Shift+↓</strong>（Mac）/ <strong>Ctrl+Shift+↓</strong>（Windows）で次のサービスに切り替えます。</p>
+            <p><strong>Cmd+Shift+↑</strong>（Mac）/ <strong>Ctrl+Shift+↑</strong>（Windows）で前のサービスに切り替えます。</p>
+          </div>
+          <div class="help-section" id="help-nav">
+            <h3>戻る・進む・リロード</h3>
+            <p>画面の<strong>右上にマウスを移動</strong>すると、ナビゲーションバーが表示されます。</p>
+            <p><strong>◀</strong> 戻る　<strong>▶</strong> 進む　<strong>↻</strong> リロード</p>
+            <p>マウスを離すと自動的に非表示になります。</p>
+          </div>
+          <div class="help-section" id="help-microsoft">
+            <h3>Outlook・MS Teamsのログイン</h3>
+            <p>HubChat内ではMicrosoftの認証方法に制限があります。</p>
+            <h4 style="color:#a6e3a1;">✅ 利用できる方法</h4>
+            <p>・メールにコードを送信する</p>
+            <h4 style="color:#f38ba8;">❌ 利用できない方法</h4>
+            <p>・顔認証 / 指紋認証 / PIN / セキュリティキー<br>・パスキー（パスワードレス認証）<br>・パスワード入力<br>・モバイルアプリでの承認</p>
+            <h3>ログイン手順</h3>
+            <p>1. メールアドレスを入力<br>2.「別の方法でサインインする」を選択<br>3.「○○@gmail.com にコードを送信する」を選択<br>4. 届いたコードを入力</p>
+          </div>
+          <div class="help-section" id="help-slack">
+            <h3>Slackワークスペースの追加</h3>
+            <p>Slackを追加すると、ワークスペースURL入力ダイアログが表示されます。</p>
+            <p>ワークスペースURLの形式: <strong>your-workspace.slack.com</strong></p>
+            <p>URLがわからない場合は、ブラウザでSlackにログインし、アドレスバーのURLを確認してください。</p>
+          </div>
+          <div class="help-section" id="help-theme">
+            <h3>テーマの切り替え</h3>
+            <p>左下の <strong>⚙（設定）</strong>ボタンをクリックし、設定画面の「テーマ」セクションで<strong>ダーク / ライト</strong>を切り替えられます。</p>
+          </div>
+          <div class="help-section" id="help-trouble">
+            <h3>画面が白い・読み込まれない</h3>
+            <p>右上のナビゲーションバーから<strong>リロード（↻）</strong>を試してください。改善しない場合は、サービスを一度削除して再追加してください。</p>
+            <h3>ログインできない</h3>
+            <p>一部のサービスはCookie/セッションの問題でログインが切れることがあります。リロードするか、サービスを再追加してください。</p>
+            <h3>通知が来ない</h3>
+            <p>各サービス側の通知設定が有効になっているか確認してください。HubChatはサイドバーのアイコンにバッジ（赤い数字）で未読数を表示します。</p>
+            <h3>アプリが固まった</h3>
+            <p>アプリを一度終了し、再起動してください。</p>
+          </div>
+        </div>
+          <div class="help-section" id="help-contact">
+            <h3>お問い合わせ</h3>
+            <p>ご質問・不具合のご報告は下記よりどうぞ。</p>
+            <h3>YDK LINE公式アカウント</h3>
+            <p><a href="https://lin.ee/7x6Gosp" id="help-line-link" style="display:inline-block;padding:12px 24px;background:#06C755;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">友だち追加してお問い合わせ</a></p>
+            <h3>お問い合わせ時のお願い</h3>
+            <p>メッセージの最初に「HubChatについて」と記入してからお送りください。</p>
+          </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
