@@ -1522,6 +1522,24 @@ document.addEventListener('keydown', (e) => {
 })
 
 
+// ショートカットキー: Cmd/Ctrl+1〜9 でサービス番号指定切替
+document.addEventListener("keydown", (e) => {
+  const isMac = /Mac/.test(navigator.platform)
+  const mod = isMac ? e.metaKey : e.ctrlKey
+  if (!mod || e.shiftKey || e.altKey) return
+  const num = parseInt(e.key, 10)
+  if (num >= 1 && num <= 9) {
+    e.preventDefault()
+    const icons = Array.from(document.querySelectorAll("#sidebar .svc-icon"))
+    const order = icons.map(el => el.dataset.id).filter(Boolean)
+    const idx = num - 1
+    if (idx < order.length) {
+      console.log("[HubChat] switch by number:", num, "->", order[idx])
+      activateService(order[idx])
+    }
+  }
+})
+
 // IPC経由のサービス切替（webviewフォーカス中のショートカット）
 if (window.electronAPI && window.electronAPI.onCycleService) {
   window.electronAPI.onCycleService((direction) => {
@@ -1546,6 +1564,18 @@ if (window.electronAPI && window.electronAPI.onSwitchToService) {
   window.electronAPI.onSwitchToService((id) => {
     console.log("[HubChat] notification click -> switch to:", id)
     activateService(id)
+  })
+}
+
+// Cmd/Ctrl+1〜9 でサービス番号指定切替
+if (window.electronAPI && window.electronAPI.onSwitchServiceByIndex) {
+  window.electronAPI.onSwitchServiceByIndex((idx) => {
+    const icons = Array.from(document.querySelectorAll("#sidebar .svc-icon"))
+    const order = icons.map(el => el.dataset.id).filter(Boolean)
+    if (idx < order.length) {
+      console.log("[HubChat] switch by index:", idx, "->", order[idx])
+      activateService(order[idx])
+    }
   })
 }
 // アプリ起動時にライセンス確認

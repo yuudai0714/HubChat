@@ -197,6 +197,17 @@ function createWindow() {
       event.preventDefault()
       mainWindow.webContents.send("cycle-service", input.key === "ArrowDown" ? "down" : "up")
     })
+
+    // ショートカットキー: Cmd/Ctrl+1〜9 でサービス番号指定切替
+    webviewContents.on("before-input-event", (event, input) => {
+      const mod = process.platform === "darwin" ? input.meta : input.control
+      if (!mod || input.shift || input.alt) return
+      const num = parseInt(input.key, 10)
+      if (num >= 1 && num <= 9) {
+        event.preventDefault()
+        mainWindow.webContents.send("switch-service-by-index", num - 1)
+      }
+    })
     // webview内のwindow.openを制御
     // リンククリックのデバッグログ
     webviewContents.on('will-navigate', (e, url) => {

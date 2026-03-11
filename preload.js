@@ -53,6 +53,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onSwitchToService: (callback) =>
     ipcRenderer.on("switch-to-service", (event, id) => callback(id)),
 
+
+  // サービス番号指定切替
+  onSwitchServiceByIndex: (callback) =>
+    ipcRenderer.on("switch-service-by-index", (event, idx) => callback(idx)),
   onSwitchToService: (callback) =>
     ipcRenderer.on('switch-to-service', (event, url) => callback(url)),
 
