@@ -27,6 +27,7 @@ const ALL_SERVICES = [
   { id:'yahoo',      name:'Yahoo!メール',    url:'https://mail.yahoo.co.jp',                category:'message',     color:'#FF0033', domain:'yahoo.co.jp' },
   // ── AI ──
   { id:'gemini',     name:'Gemini',          url:'https://gemini.google.com/app',           category:'ai',          color:'#4285F4', domain:'gemini.google.com', icon:'https://www.gstatic.com/lamda/images/gemini_favicon_f069958c85030456e93de685481c559f160ea06b.png' },
+  { id:"chatgpt", name:"ChatGPT", url:"https://chatgpt.com", category:"ai", color:"#10A37F", domain:"chatgpt.com", icon:"https://cdn.oaistatic.com/_next/static/media/apple-touch-icon.59f2e898.png" },
   // ── 生産性 ──
   { id:'gcal',       name:'Googleカレンダー',url:'https://calendar.google.com/calendar/',    category:'google',color:'#4285F4', domain:'calendar.google.com', icon:'https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_31_2x.png' },
   { id:'gtasks',     name:'Googleタスク',    url:'https://tasks.google.com/embed/?origin=https://calendar.google.com&fullWidth=1', category:'google',color:'#34A853', domain:'tasks.google.com', icon:'https://ssl.gstatic.com/tasks/images/icon_2022q4_v2/favicon.ico' },
@@ -79,6 +80,20 @@ async function init() {
   applyTheme(S.theme)
   renderSidebar()
   setupEvents()
+
+  // 起動時：追加済みサービスのwebviewをバックグラウンドで順次生成（バッジ取得用）
+  const addedServices = S.serviceOrder.filter(id => S.services[id]?.added && S.services[id]?.enabled)
+  let delay = 2000
+  addedServices.forEach((id) => {
+    setTimeout(() => {
+      const existing = document.querySelector(`webview[data-id="${id}"]`)
+      if (!existing) {
+        console.log("[HubChat] preload webview for badge:", id)
+        activateService(id, false)
+      }
+    }, delay)
+    delay += 1500
+  })
 }
 
 // ============================================================
@@ -298,6 +313,30 @@ function syncServiceDomains() {
   }
 }
 
+// バッジ取得用：webviewをバックグラウンドで生成（表示はしない）
+function preloadWebview(id) {
+  const svc = ALL_SERVICES.find(s => s.id === id)
+  if (!svc) return
+  const existing = document.querySelector(`webview[data-id="${id}"]`)
+  if (existing) return
+
+  const wv = document.createElement("webview")
+  wv.dataset.id = id
+  wv.setAttribute("src", S.services[id]?.customUrl || svc.url)
+  const isGoogle = svc.domain && svc.domain.endsWith("google.com")
+  wv.setAttribute("partition", isGoogle ? "persist:google" : `persist:${id}`)
+  wv.setAttribute("allowpopups", "")
+  wv.setAttribute("useragent",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+    "AppleWebKit/537.36 (KHTML, like Gecko) " +
+    "Chrome/137.0.0.0 Safari/537.36")
+  if (svc.preload) wv.setAttribute("preload", svc.preload)
+  wv.style.display = "none"
+  document.getElementById("webview-container").appendChild(wv)
+  setupBadgeWatcher(wv, id)
+  console.log("[HubChat] preloaded webview for:", id)
+}
+
 async function activateService(id, scroll = true) {
   const svc = ALL_SERVICES.find(s => s.id === id)
   if (!svc) return
@@ -413,7 +452,7 @@ async function activateService(id, scroll = true) {
     })
     document.getElementById('webview-container').appendChild(wv)
   }
-  wv.classList.add('active')
+  wv.style.display = ""; wv.classList.add('active')
 }
 
 function reloadWV(id) {
@@ -928,6 +967,14 @@ function updateBadge(id, count) {
     badge.textContent = count > 99 ? '99' : count
     iconEl.appendChild(badge)
   }
+
+  // Dock合計バッジ更新
+  const allBadges = document.querySelectorAll(".svc-icon .badge:not(.dot)")
+  let total = 0
+  allBadges.forEach(b => { const n = parseInt(b.textContent, 10); if (!isNaN(n)) total += n })
+  if (window.electronAPI && window.electronAPI.updateDockBadge) {
+    window.electronAPI.updateDockBadge(total)
+  }
 }
 
 function checkFaviconForNotification(id, favicons) {
@@ -950,12 +997,29 @@ function setupBadgeWatcher(wv, id) {
   wv.addEventListener('page-title-updated', (e) => {
     const count = extractUnreadCount(e.title)
     updateBadge(id, count)
+    // OS通知（未読数が増えた時＆非アクティブサービスの場合）
+    if (count > 0 && id !== S.activeId) {
+      const svc = ALL_SERVICES.find(s => s.id === id)
+      const name = svc ? svc.name : id
+      if (window.electronAPI && window.electronAPI.sendNotification) {
+        window.electronAPI.sendNotification(name, `${count}件の未読メッセージ`, id)
+      }
+    }
   })
 
   wv.addEventListener('page-favicon-updated', (e) => {
     checkFaviconForNotification(id, e.favicons)
   })
 
+
+  // 起動時の初回バッジチェック（webview読み込み完了後）
+  wv.addEventListener("dom-ready", () => {
+    try {
+      const title = wv.getTitle()
+      const count = extractUnreadCount(title)
+      updateBadge(id, count)
+    } catch(e) {}
+  })
   setInterval(() => {
     try {
       const title = wv.getTitle()
@@ -1474,6 +1538,14 @@ if (window.electronAPI && window.electronAPI.onCycleService) {
     }
     console.log("[HubChat] cycle-service:", direction, "from", current, "to", order[idx])
     activateService(order[idx])
+  })
+}
+
+// 通知クリック時のサービス切替
+if (window.electronAPI && window.electronAPI.onSwitchToService) {
+  window.electronAPI.onSwitchToService((id) => {
+    console.log("[HubChat] notification click -> switch to:", id)
+    activateService(id)
   })
 }
 // アプリ起動時にライセンス確認

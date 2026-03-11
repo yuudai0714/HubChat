@@ -37,9 +37,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateServiceDomains: (domains) =>
     ipcRenderer.send('update-service-domains', domains),
 
+
+  // Dockバッジ更新
+  updateDockBadge: (count) =>
+    ipcRenderer.send("update-dock-badge", count),
   // メインプロセスからのナビゲート指示を受信
+
+  // OS通知送信
+  sendNotification: (title, body, serviceId) =>
+    ipcRenderer.send("send-notification", { title, body, serviceId }),
   onNavigateInService: (callback) =>
     ipcRenderer.on('navigate-in-service', (event, url) => callback(url)),
+
+  // メインからサービス切替指示
+  onSwitchToService: (callback) =>
+    ipcRenderer.on("switch-to-service", (event, id) => callback(id)),
 
   onSwitchToService: (callback) =>
     ipcRenderer.on('switch-to-service', (event, url) => callback(url)),

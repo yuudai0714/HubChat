@@ -16,7 +16,7 @@ const ALLOWED_DOMAINS = [
   'accounts.google.com','login.live.com','appleid.apple.com',
   'github.com','notion.so','trello.com','asana.com',
   'zoom.us','calendar.google.com','drive.google.com',
-  'ydk-business.com'
+  'ydk-business.com','chatgpt.com','cdn.oaistatic.com'
 ]
 
 function isAllowedDomain(url) {
@@ -438,4 +438,27 @@ autoUpdater.on('update-downloaded', () => {
 
 autoUpdater.on('error', (err) => {
   console.log('[AutoUpdater] error:', err.message)
+})
+
+// Dockバッジ（未読合計数）
+ipcMain.on('update-dock-badge', (event, count) => {
+  if (process.platform === 'darwin') {
+    app.dock.setBadge(count > 0 ? String(count) : '')
+  }
+})
+
+// OS通知統合
+const { Notification } = require('electron')
+ipcMain.on('send-notification', (event, { title, body, serviceId }) => {
+  if (Notification.isSupported()) {
+    const notif = new Notification({ title, body, silent: false })
+    notif.on('click', () => {
+      if (mainWindow) {
+        mainWindow.show()
+        mainWindow.focus()
+        mainWindow.webContents.send('switch-to-service', serviceId)
+      }
+    })
+    notif.show()
+  }
 })
