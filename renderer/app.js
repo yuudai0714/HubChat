@@ -64,6 +64,9 @@ let S = {
 let ctxTarget = null  // 右クリック対象のサービスID
 let dragSrc   = null  // ドラッグ中のサービスID
 
+let lastActiveTime = {}  // { id: timestamp } 各サービスの最終アクティブ時刻
+const HIBERNATE_TIMEOUT = 5 * 60 * 1000  // 5分
+let hibernatedServices = new Set()  // ハイバネーション中のサービスID
 // ============================================================
 // 3. 起動・初期化
 // ============================================================
@@ -359,6 +362,18 @@ async function activateService(id, scroll = true) {
   document.querySelectorAll('webview').forEach(w => w.classList.remove('active'))
 
   S.activeId = id
+  lastActiveTime[id] = Date.now()
+
+  // ハイバネーション中なら復帰
+  if (hibernatedServices.has(id)) {
+    const wvH = document.querySelector(`webview[data-id="${id}"]`)
+    if (wvH && wvH.dataset.origSrc) {
+      console.log("[HubChat] restoring hibernated:", id)
+      wvH.setAttribute("src", wvH.dataset.origSrc)
+      delete wvH.dataset.origSrc
+    }
+    hibernatedServices.delete(id)
+  }
 
   document.querySelectorAll('.svc-icon').forEach(el => {
     el.classList.toggle('active', el.dataset.id === id)
@@ -703,9 +718,48 @@ async function save() {
 // ============================================================
 function setupEvents() {
   document.getElementById('add-btn').addEventListener('click', openAddModal)
+
+  // ハイバネーション: 60秒ごとに非アクティブサービスをチェック
+  setInterval(() => {
+    const now = Date.now()
+    document.querySelectorAll("webview[data-id]").forEach(wv => {
+      const id = wv.dataset.id
+      if (id === S.activeId) return
+      if (hibernatedServices.has(id)) return
+      const last = lastActiveTime[id] || 0
+      if (last > 0 && (now - last) > HIBERNATE_TIMEOUT) {
+        console.log("[HubChat] hibernating:", id)
+        wv.dataset.origSrc = wv.getAttribute("src") || wv.src
+        wv.setAttribute("src", "about:blank")
+        hibernatedServices.add(id)
+      }
+    })
+  }, 60000)
   document.getElementById('welcome-add-btn').addEventListener('click', openAddModal)
 
   document.getElementById('settings-btn').addEventListener('click', openSettings)
+
+  // ツールチップ（position: fixedでoverflow影響なし）
+  const tooltip = document.createElement("div")
+  tooltip.id = "svc-tooltip"
+  tooltip.style.cssText = "position:fixed;background:rgba(0,0,0,0.85);color:#fff;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:99999;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3);"
+  document.body.appendChild(tooltip)
+
+  document.addEventListener("mouseover", (e) => {
+    const icon = e.target.closest(".svc-icon")
+    if (icon && icon.dataset.tip) {
+      const rect = icon.getBoundingClientRect()
+      tooltip.textContent = icon.dataset.tip
+      tooltip.style.left = (rect.right + 10) + "px"
+      tooltip.style.top = (rect.top + rect.height / 2) + "px"
+      tooltip.style.transform = "translateY(-50%)"
+      tooltip.style.opacity = "1"
+    }
+  })
+  document.addEventListener("mouseout", (e) => {
+    const icon = e.target.closest(".svc-icon")
+    if (icon) tooltip.style.opacity = "0"
+  })
 
   document.getElementById('modal-close').addEventListener('click', closeAddModal)
   document.getElementById('modal-overlay').addEventListener('click', closeAddModal)

@@ -217,7 +217,7 @@ function createWindow() {
     webviewContents.setWindowOpenHandler(({ url: popupUrl }) => {
       console.log('[HubChat-NAV] setWindowOpenHandler called:', popupUrl)
       if (!popupUrl || popupUrl === 'about:blank') return { action: 'deny' }
-      const authDomains = ['accounts.google.com','login.microsoftonline.com','login.live.com','appleid.apple.com','auth.line.me','access.line.me','oauth.line.me']
+      const authDomains = ['notion.so','accounts.google.com','login.microsoftonline.com','login.live.com','appleid.apple.com','auth.line.me','access.line.me','oauth.line.me']
       try {
         const h = new URL(popupUrl).hostname
         // 認証URL → ポップアップ許可

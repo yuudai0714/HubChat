@@ -180,26 +180,6 @@ body {
   pointer-events: none;
 }
 
-.svc-icon::after {
-  content: attr(data-tip);
-  position: absolute;
-  left: calc(100% + 14px);
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--bg-active);
-  color: var(--text-main);
-  padding: 5px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .15s;
-  z-index: 999;
-  box-shadow: var(--shadow);
-}
-.svc-icon:hover::after { opacity: 1; }
 
 .badge {
   position: absolute;
@@ -838,3 +818,4 @@ webview.active { display: flex; }
   width: 24px; height: 1px; margin: 4px auto;
   background: rgba(255,255,255,0.15);
 }
+
