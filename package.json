@@ -33,7 +33,8 @@
           ]
         }
       ],
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "notarize": false
     },
     "win": {
       "target": [
