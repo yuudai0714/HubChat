@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HubChat - すべてのチャットを1つに</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      min-height: 100vh;
+    }
+    .hero {
+      text-align: center;
+      padding: 80px 20px 60px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .logo {
+      width: 100px;
+      height: 100px;
+      margin-bottom: 24px;
+      border-radius: 20px;
+    }
+    h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #f7931e, #ff6b35);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      font-size: 20px;
+      color: #aaa;
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .price {
+      font-size: 16px;
+      color: #888;
+      margin-bottom: 48px;
+    }
+    .price span {
+      color: #f7931e;
+      font-weight: 600;
+    }
+    .download-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 60px;
+    }
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-size: 17px;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s;
+      min-width: 300px;
+      justify-content: center;
+    }
+    .download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(247, 147, 30, 0.3);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #f7931e, #ff6b35);
+      color: #fff;
+    }
+    .btn-secondary {
+      background: #1a1a1a;
+      color: #fff;
+      border: 1px solid #333;
+    }
+    .btn-secondary:hover {
+      box-shadow: 0 8px 24px rgba(255, 255, 255, 0.1);
+    }
+    .btn-label {
+      font-size: 13px;
+      color: #888;
+      font-weight: 400;
+    }
+    .features {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 20px 80px;
+    }
+    .features h2 {
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 40px;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .feature-card h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: #888;
+      line-height: 1.6;
+    }
+    .footer {
+      text-align: center;
+      padding: 40px 20px;
+      border-top: 1px solid #1a1a1a;
+      color: #555;
+      font-size: 14px;
+    }
+    .footer a { color: #888; text-decoration: none; }
+    .footer a:hover { color: #f7931e; }
+    @media (max-width: 600px) {
+      h1 { font-size: 32px; }
+      .download-btn { min-width: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <img src="https://raw.githubusercontent.com/yuudai0714/HubChat/main/build/icon.png" alt="HubChat" class="logo" onerror="this.style.display='none'">
+    <h1>HubChat</h1>
+    <p class="subtitle">Chatwork、Slack、LINE、Discord、Teams…<br>すべてのチャットを1つのアプリで。</p>
+    <p class="price"><span>3サービスまで無料</span> ／ それ以上は月額550円</p>
+  </div>
+
+  <div class="download-section">
+    <a href="https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-1.0.1-arm64.dmg" class="download-btn btn-primary">
+      Mac (Apple Silicon) をダウンロード
+      <span class="btn-label">M1 / M2 / M3 / M4</span>
+    </a>
+    <a href="https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-1.0.1.dmg" class="download-btn btn-secondary">
+      Mac (Intel) をダウンロード
+      <span class="btn-label">2020年以前のMac</span>
+    </a>
+    <a href="https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-Setup-1.0.1.exe" class="download-btn btn-secondary">
+      Windows をダウンロード
+      <span class="btn-label">Windows 10 / 11</span>
+    </a>
+  </div>
+
+  <div class="features">
+    <h2>特徴</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>🔄 一画面で管理</h3>
+        <p>複数のチャットサービスをサイドバーでワンクリック切替。もうブラウザのタブを探す必要はありません。</p>
+      </div>
+      <div class="feature-card">
+        <h3>🔔 統合通知</h3>
+        <p>すべてのサービスの未読通知をまとめて確認。見逃しゼロ。</p>
+      </div>
+      <div class="feature-card">
+        <h3>⚡ 軽量＆高速</h3>
+        <p>ハイバネーション機能で未使用サービスのメモリを自動解放。PCが重くなりません。</p>
+      </div>
+      <div class="feature-card">
+        <h3>⌨️ ショートカット</h3>
+        <p>Cmd+1〜9でサービス即切替。キーボードだけで操作完結。</p>
+      </div>
+      <div class="feature-card">
+        <h3>🎨 ダーク/ライト</h3>
+        <p>お好みのテーマで快適に作業。目に優しいダークモード対応。</p>
+      </div>
+      <div class="feature-card">
+        <h3>🔄 自動アップデート</h3>
+        <p>新機能や改善が自動で反映。常に最新バージョンで利用できます。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>© 2026 YDK LLC &nbsp;|&nbsp; <a href="mailto:yudai0714@ydk-ai.com">お問い合わせ</a></p>
+  </div>
+</body>
+</html>
