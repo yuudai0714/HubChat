@@ -91,7 +91,7 @@
     .features {
       max-width: 800px;
       margin: 0 auto;
-      padding: 0 20px 80px;
+      padding: 0 20px 60px;
     }
     .features h2 {
       text-align: center;
@@ -118,6 +118,39 @@
       color: #888;
       line-height: 1.6;
     }
+    .services-section {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 20px 80px;
+    }
+    .services-section h2 {
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 40px;
+    }
+    .service-category {
+      margin-bottom: 32px;
+    }
+    .service-category h3 {
+      font-size: 16px;
+      color: #f7931e;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #222;
+    }
+    .service-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .service-tag {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 14px;
+      color: #ccc;
+    }
     .footer {
       text-align: center;
       padding: 40px 20px;
@@ -137,8 +170,8 @@
   <div class="hero">
     <img src="https://raw.githubusercontent.com/yuudai0714/HubChat/main/build/icon.png" alt="HubChat" class="logo" onerror="this.style.display='none'">
     <h1>HubChat</h1>
-    <p class="subtitle">Chatwork、Slack、LINE、Discord、Teams…<br>すべてのチャットを1つのアプリで。</p>
-    <p class="price"><span>3サービスまで無料</span> ／ それ以上は月額550円</p>
+    <p class="subtitle">Chatwork、Slack、LINE、Gmail、Discord…<br>すべてのチャット・ツールを1つのアプリで。</p>
+    <p class="price"><span>3サービスまで無料</span> ／ 無制限は月額550円（7日間無料トライアル）</p>
   </div>
 
   <div class="download-section">
@@ -150,10 +183,6 @@
       Mac (Intel) をダウンロード
       <span class="btn-label">2020年以前のMac</span>
     </a>
-    <a href="https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-Setup-1.0.1.exe" class="download-btn btn-secondary">
-      Windows をダウンロード
-      <span class="btn-label">Windows 10 / 11</span>
-    </a>
   </div>
 
   <div class="features">
@@ -161,11 +190,11 @@
     <div class="feature-grid">
       <div class="feature-card">
         <h3>🔄 一画面で管理</h3>
-        <p>複数のチャットサービスをサイドバーでワンクリック切替。もうブラウザのタブを探す必要はありません。</p>
+        <p>複数のサービスをサイドバーでワンクリック切替。もうブラウザのタブを探す必要はありません。</p>
       </div>
       <div class="feature-card">
-        <h3>🔔 統合通知</h3>
-        <p>すべてのサービスの未読通知をまとめて確認。見逃しゼロ。</p>
+        <h3>🔔 統合通知バッジ</h3>
+        <p>すべてのサービスの未読通知をサイドバーとDockアイコンで確認。見逃しゼロ。</p>
       </div>
       <div class="feature-card">
         <h3>⚡ 軽量＆高速</h3>
@@ -173,7 +202,7 @@
       </div>
       <div class="feature-card">
         <h3>⌨️ ショートカット</h3>
-        <p>Cmd+1〜9でサービス即切替。キーボードだけで操作完結。</p>
+        <p>Cmd+Shift+↑↓でサービス切替、Cmd+-/0でズーム調整。キーボードだけで操作完結。</p>
       </div>
       <div class="feature-card">
         <h3>🎨 ダーク/ライト</h3>
@@ -186,8 +215,69 @@
     </div>
   </div>
 
+  <div class="services-section">
+    <h2>対応サービス（30+）</h2>
+
+    <div class="service-category">
+      <h3>💬 メッセージ</h3>
+      <div class="service-list">
+        <span class="service-tag">Chatwork</span>
+        <span class="service-tag">Slack</span>
+        <span class="service-tag">Gmail</span>
+        <span class="service-tag">Outlook</span>
+        <span class="service-tag">Discord</span>
+        <span class="service-tag">Google Chat</span>
+        <span class="service-tag">LINE WORKS</span>
+        <span class="service-tag">LINE公式メッセージ</span>
+        <span class="service-tag">LINE管理画面</span>
+        <span class="service-tag">Instagram DM</span>
+        <span class="service-tag">Messenger</span>
+        <span class="service-tag">WhatsApp</span>
+        <span class="service-tag">Telegram</span>
+        <span class="service-tag">LinkedIn</span>
+        <span class="service-tag">Yahoo!メール</span>
+      </div>
+    </div>
+
+    <div class="service-category">
+      <h3>🤖 AI アシスタント</h3>
+      <div class="service-list">
+        <span class="service-tag">Gemini</span>
+        <span class="service-tag">ChatGPT</span>
+      </div>
+    </div>
+
+    <div class="service-category">
+      <h3>📊 Google ツール</h3>
+      <div class="service-list">
+        <span class="service-tag">Googleカレンダー</span>
+        <span class="service-tag">Googleタスク</span>
+        <span class="service-tag">Google Keep</span>
+        <span class="service-tag">Googleドライブ</span>
+        <span class="service-tag">Googleスプレッドシート</span>
+        <span class="service-tag">Googleドキュメント</span>
+        <span class="service-tag">Googleスライド</span>
+      </div>
+    </div>
+
+    <div class="service-category">
+      <h3>🛠 生産性ツール</h3>
+      <div class="service-list">
+        <span class="service-tag">Notion</span>
+        <span class="service-tag">Canva</span>
+      </div>
+    </div>
+
+    <div class="service-category">
+      <h3>📝 コンテンツ</h3>
+      <div class="service-list">
+        <span class="service-tag">note</span>
+      </div>
+    </div>
+  </div>
+
   <div class="footer">
-    <p>© 2026 YDK LLC &nbsp;|&nbsp; <a href="mailto:yudai0714@ydk-ai.com">お問い合わせ</a></p>
+    <p>© 2026 YDK LLC &nbsp;|&nbsp; <a href="mailto:yudai0714@ydk-ai.com">お問い合わせ</a> &nbsp;|&nbsp; <a href="https://github.com/yuudai0714/HubChat/releases">リリースノート</a></p>
   </div>
 </body>
 </html>
