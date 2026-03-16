@@ -3,6 +3,24 @@
 // ============================================================
 
 const { app, BrowserWindow, ipcMain, shell, session } = require('electron')
+
+// 外部リンクの重複オープン防止
+const _recentExternalUrls = new Map()
+function openExternalOnce(url) {
+  const now = Date.now()
+  const lastOpen = _recentExternalUrls.get(url)
+  if (lastOpen && now - lastOpen < 3000) {
+    console.log('[HubChat] duplicate openExternal blocked:', url)
+    return
+  }
+  _recentExternalUrls.set(url, now)
+  if (_recentExternalUrls.size > 50) {
+    for (const [k, v] of _recentExternalUrls) {
+      if (now - v > 10000) _recentExternalUrls.delete(k)
+    }
+  }
+  shell.openExternal(url)
+}
 const { autoUpdater } = require("electron-updater")
 
 
@@ -177,7 +195,7 @@ function createWindow() {
       return { action: 'deny' }
     }
     // その他 → 外部ブラウザ
-    shell.openExternal(url)
+    openExternalOnce(url)
     return { action: 'deny' }
   })
 
@@ -275,7 +293,7 @@ function createWindow() {
         }
         // Googleリダイレクトリンク → 外部ブラウザ
         if (h === "www.google.com" && popupUrl.includes("/url?")) {
-          shell.openExternal(popupUrl)
+          openExternalOnce(popupUrl)
           return { action: "deny" }
         }
         // Canva OAuth (Google/LINE等) → ポップアップ許可
@@ -317,7 +335,7 @@ function createWindow() {
       } catch(e) { console.log('[HubChat-NAV] ERROR in handler:', e) }
       // その他 → 外部ブラウザ
       console.log('[HubChat-NAV] opening externally:', popupUrl)
-      shell.openExternal(popupUrl)
+      openExternalOnce(popupUrl)
       return { action: 'deny' }
     })
 
@@ -421,7 +439,7 @@ app.on('window-all-closed', () => {
         }
       }
     }
-    shell.openExternal(innerUrl)
+    openExternalOnce(innerUrl)
     return { action: 'deny' }
   })
 
@@ -476,7 +494,7 @@ ipcMain.handle('verify-license', async (event, key) => {
 })
 
 ipcMain.handle('open-external', (event, url) => {
-  shell.openExternal(url)
+  openExternalOnce(url)
 })
 
 // ============================================
