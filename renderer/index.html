@@ -124,17 +124,6 @@
         <h3>追加済みサービス</h3>
         <div id="service-manage-list"></div>
       </div>
-      <div class="settings-section">
-        <h3>プラン</h3>
-        <div id="license-section">
-          <div id="license-status" style="margin-bottom:12px;font-size:13px;color:var(--text-sub);">現在のプラン: <strong>フリー</strong>（3サービスまで）</div>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-            <input type="text" id="license-key-input" placeholder="ライセンスキーを入力" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--bg-hover);background:var(--bg-main);color:var(--text-main);font-size:13px;">
-            <button id="license-verify-btn" style="padding:8px 16px;background:var(--accent);color:#11111b;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">認証</button>
-          </div>
-          <button id="license-upgrade-btn" style="width:100%;padding:10px;background:#06C755;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">プロプランにアップグレード（月額550円）</button>
-        </div>
-      </div>
       <div class="settings-section settings-danger">
         <h3>データ管理</h3>
         <button id="reset-btn" class="danger-btn">全データをリセット</button>
@@ -200,6 +189,10 @@
             <h3>ショートカットキー</h3>
             <p><strong>Cmd+Shift+↓</strong>（Mac）/ <strong>Ctrl+Shift+↓</strong>（Windows）で次のサービスに切り替えます。</p>
             <p><strong>Cmd+Shift+↑</strong>（Mac）/ <strong>Ctrl+Shift+↑</strong>（Windows）で前のサービスに切り替えます。</p>
+            <h3>ズーム（表示サイズ調整）</h3>
+            <p><strong>Cmd + -</strong>（Mac）/ <strong>Ctrl + -</strong>（Windows）で表示を縮小します。</p>
+            <p><strong>Cmd + 0</strong>（Mac）/ <strong>Ctrl + 0</strong>（Windows）で表示サイズをリセットします。</p>
+            <p>※ズームレベルはサービスごとに個別に保存されます。</p>
           </div>
           <div class="help-section" id="help-nav">
             <h3>戻る・進む・リロード</h3>
@@ -232,6 +225,10 @@
             <p>右上のナビゲーションバーから<strong>リロード（↻）</strong>を試してください。改善しない場合は、サービスを一度削除して再追加してください。</p>
             <h3>ログインできない</h3>
             <p>一部のサービスはCookie/セッションの問題でログインが切れることがあります。リロードするか、サービスを再追加してください。</p>
+            <h3>Canva で Google ログインができない</h3>
+            <p>Googleのセキュリティにより、デスクトップアプリ内でのGoogleログインがブロックされる場合があります。Canvaのログイン画面で<strong>「別の方法でログイン」→「メールアドレスでログイン」</strong>を選択してください。Googleアカウントで作成したCanvaアカウントでも、<a href="https://www.canva.com/ja_jp/help/reset-password/" id="help-canva-pw-link" style="color:#7B61FF;">Canvaのパスワードリセットページ</a>からパスワードを設定できます。</p>
+            <h3>各サービスで Google ログインができない場合</h3>
+            <p>Googleのセキュリティポリシーにより、デスクトップアプリ内からのGoogleログイン（OAuth認証）がブロックされる場合があります。これはHubChatに限らず、同種のデスクトップアプリ共通の制限です。<strong>各サービスのメールアドレス＋パスワード方式</strong>でログインしてください。Googleアカウントで登録したサービスでも、各サービスの「パスワードをお忘れの場合」からパスワードを設定できます。</p>
             <h3>通知が来ない</h3>
             <p>各サービス側の通知設定が有効になっているか確認してください。HubChatはサイドバーのアイコンにバッジ（赤い数字）で未読数を表示します。</p>
             <h3>アプリが固まった</h3>

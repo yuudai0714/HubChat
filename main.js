@@ -186,6 +186,32 @@ function createWindow() {
     applySessionFixes(ses)
     webviewContents.setUserAgent(CHROME_UA)
 
+    // LINE等のセッションCookieを永続化
+    webviewContents.on("did-finish-load", () => {
+      const wvSes = webviewContents.session
+      const wvUrl = webviewContents.getURL()
+      if (wvUrl.includes("line.biz") || wvUrl.includes("line.me")) {
+        wvSes.cookies.get({ domain: ".line.biz" }).then(cookies => {
+          cookies.forEach(c => {
+            if (!c.expirationDate) {
+              var futureDate = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60
+              var cookieObj = { url: "https://" + (c.domain.startsWith(".") ? c.domain.substring(1) : c.domain) + c.path, name: c.name, value: c.value, domain: c.domain, path: c.path, secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite || "no_restriction", expirationDate: futureDate }
+              wvSes.cookies.set(cookieObj).catch(() => {})
+            }
+          })
+        }).catch(() => {})
+        wvSes.cookies.get({ domain: ".line.me" }).then(cookies => {
+          cookies.forEach(c => {
+            if (!c.expirationDate) {
+              var futureDate = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60
+              var cookieObj = { url: "https://" + (c.domain.startsWith(".") ? c.domain.substring(1) : c.domain) + c.path, name: c.name, value: c.value, domain: c.domain, path: c.path, secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite || "no_restriction", expirationDate: futureDate }
+              wvSes.cookies.set(cookieObj).catch(() => {})
+            }
+          })
+        }).catch(() => {})
+      }
+    })
+
 
     // ショートカットキー: webviewフォーカス中でもCmd/Ctrl+Shift+Arrow を捕捉
     webviewContents.on("before-input-event", (event, input) => {
@@ -208,21 +234,64 @@ function createWindow() {
         mainWindow.webContents.send("switch-service-by-index", num - 1)
       }
     })
+
+    // ズーム: Cmd/Ctrl + Plus/Minus/0
+    webviewContents.on("before-input-event", (event, input) => {
+      const mod = process.platform === "darwin" ? input.meta : input.control
+      if (!mod || input.alt) return
+      if ((input.shift && input.key === "_") || (!input.shift && input.key === "-") || (!input.shift && input.key === "0")) {
+        event.preventDefault()
+        mainWindow.webContents.send("zoom-service", input.key)
+      }
+    })
     // webview内のwindow.openを制御
     // リンククリックのデバッグログ
     webviewContents.on('will-navigate', (e, url) => {
       console.log('[HubChat-NAV] will-navigate:', url)
     })
 
+    // ポップアップが作成されたら UA と session fix を適用
+    webviewContents.on('did-create-window', (popupWindow) => {
+      const popupSes = popupWindow.webContents.session
+      applySessionFixes(popupSes)
+      popupWindow.webContents.setUserAgent(CHROME_UA)
+      // ポップアップ内のさらなるポップアップにも適用
+      popupWindow.webContents.on('did-create-window', (innerPopup) => {
+        const innerSes = innerPopup.webContents.session
+        applySessionFixes(innerSes)
+        innerPopup.webContents.setUserAgent(CHROME_UA)
+      })
+    })
+
     webviewContents.setWindowOpenHandler(({ url: popupUrl }) => {
       console.log('[HubChat-NAV] setWindowOpenHandler called:', popupUrl)
       if (!popupUrl || popupUrl === 'about:blank') return { action: 'deny' }
-      const authDomains = ['notion.so','accounts.google.com','login.microsoftonline.com','login.live.com','appleid.apple.com','auth.line.me','access.line.me','oauth.line.me']
+      const authDomains = ['notion.so','accounts.google.com','login.microsoftonline.com','login.live.com','appleid.apple.com','auth.line.me','access.line.me','oauth.line.me','facebook.com','www.facebook.com','m.facebook.com','web.facebook.com','account.line.biz']
       try {
         const h = new URL(popupUrl).hostname
         // 認証URL → ポップアップ許可
         if (authDomains.some(d => h === d || h.endsWith('.' + d))) {
           return { action: 'allow', overrideBrowserWindowOptions: { width: 500, height: 700, webPreferences: { nodeIntegration: false, contextIsolation: false } } }
+        }
+        // Googleリダイレクトリンク → 外部ブラウザ
+        if (h === "www.google.com" && popupUrl.includes("/url?")) {
+          shell.openExternal(popupUrl)
+          return { action: "deny" }
+        }
+        // Canva OAuth (Google/LINE等) → ポップアップ許可
+        if (popupUrl.includes("canva.com/oauth/authorize") || popupUrl.includes("accounts.google.com")) {
+          return {
+            action: 'allow',
+            overrideBrowserWindowOptions: {
+              width: 500,
+              height: 700,
+              webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: false
+              }
+            },
+            outlivesOpener: true
+          }
         }
         // 同じドメイン → レンダラーにwebview内ナビゲート指示
         const currentHost = new URL(webviewContents.getURL()).hostname
@@ -296,6 +365,13 @@ ipcMain.on('update-service-domains', (event, domains) => {
   console.log('[HubChat-main] received domains:', addedServiceDomains)
 })
 
+// 全てのwebContents（ポップアップ含む）でElectron識別子を除去
+app.on('web-contents-created', (_, contents) => {
+  const ses = contents.session
+  applySessionFixes(ses)
+  contents.setUserAgent(CHROME_UA)
+})
+
 app.whenReady().then(() => {
   app.userAgentFallback = CHROME_UA
   applySessionFixes(session.defaultSession)
@@ -358,6 +434,7 @@ ipcMain.handle('store-get', (event, key, defaultValue) => {
 
 ipcMain.handle('store-set', (event, key, value) => {
   store.set(key, value)
+  console.log("[HubChat-MAIN] store.set called:", key, typeof value === "string" ? value.substring(0,20) : value)
 })
 
 ipcMain.handle('store-delete', (event, key) => {
@@ -455,6 +532,7 @@ autoUpdater.on('error', (err) => {
 ipcMain.on('update-dock-badge', (event, count) => {
   if (process.platform === 'darwin') {
     app.dock.setBadge(count > 0 ? String(count) : '')
+    app.setBadgeCount(count)
   }
   if (process.platform === "win32" && mainWindow) {
     if (count > 0) {

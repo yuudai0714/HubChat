@@ -10,7 +10,6 @@ const ALL_SERVICES = [
   { id:'slack',      name:'Slack',           url:'https://street-smart-talk.slack.com/',                  category:'message',     color:'#4A154B', domain:'slack.com' },
   { id:'gmail',      name:'Gmail',           url:'https://mail.google.com',                 category:'message',     color:'#EA4335', domain:'mail.google.com' },
   { id:'outlook',    name:'Outlook',         url:'https://outlook.live.com/mail/',          category:'message',     color:'#0078D4', domain:'outlook.live.com', msAuth: true },
-  { id:'teams',      name:'MS Teams',        url:'https://teams.microsoft.com',             category:'message',     color:'#6264A7', domain:'teams.microsoft.com', msAuth: true },
   { id:'discord',    name:'Discord',         url:'https://discord.com/app',                 category:'message',     color:'#5865F2', domain:'discord.com' },
   { id:'chatwork',   name:'Chatwork',        url:'https://www.chatwork.com',                category:'message',     color:'#41C9FF', domain:'chatwork.com' },
   { id:'googlechat', name:'Google Chat',     url:'https://chat.google.com',                 category:'message',     color:'#34A853', domain:'chat.google.com' },
@@ -21,7 +20,6 @@ const ALL_SERVICES = [
   { id:'messenger',  name:'Messenger',       url:'https://www.messenger.com',               category:'message',     color:'#0084FF', domain:'messenger.com' },
   { id:'twitter',    name:'X (Twitter)',     url:'https://twitter.com/messages',            category:'message',     color:'#000000', domain:'x.com' },
   { id:'whatsapp',   name:'WhatsApp',        url:'https://web.whatsapp.com',                category:'message',     color:'#25D366', domain:'whatsapp.com' },
-  { id:'skype',      name:'Skype WEB',       url:'https://web.skype.com',                   category:'message',     color:'#00AFF0', domain:'skype.com' },
   { id:'telegram',   name:'Telegram',        url:'https://web.telegram.org',                category:'message',     color:'#2CA5E0', domain:'telegram.org' },
   { id:'linkedin',   name:'LinkedIn',        url:'https://www.linkedin.com/messaging/',     category:'message',     color:'#0077B5', domain:'linkedin.com' },
   { id:'yahoo',      name:'Yahoo!メール',    url:'https://mail.yahoo.co.jp',                category:'message',     color:'#FF0033', domain:'yahoo.co.jp' },
@@ -33,7 +31,6 @@ const ALL_SERVICES = [
   { id:'gtasks',     name:'Googleタスク',    url:'https://tasks.google.com/embed/?origin=https://calendar.google.com&fullWidth=1', category:'google',color:'#34A853', domain:'tasks.google.com', icon:'https://ssl.gstatic.com/tasks/images/icon_2022q4_v2/favicon.ico' },
   { id:'gkeep',      name:'Google Keep',     url:'https://keep.google.com/',                category:'google',color:'#FBBC04', domain:'keep.google.com', icon:'https://ssl.gstatic.com/keep/icon_2020q4v2_128.png' },
   { id:'notion',     name:'Notion',          url:'https://www.notion.so',                   category:'productivity',color:'#ffffff', domain:'notion.so' },
-  { id:'onenote',    name:'OneNote',         url:'https://www.onenote.com',                 category:'productivity',color:'#7719AA', domain:'onenote.com' },
   { id:"gdrive",  name:"Googleドライブ",       url:"https://drive.google.com",        category:'google', color:"#4285F4", domain:"drive.google.com",  icon:"https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png" },
   { id:"gsheets", name:"Googleスプレッドシート", url:"https://docs.google.com/spreadsheets", category:'google', color:"#0F9D58", domain:"docs.google.com", icon:"https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico" },
   { id:"gdocs",   name:"Googleドキュメント",    url:"https://docs.google.com/document",    category:'google', color:"#4285F4", domain:"docs.google.com", icon:"https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico" },
@@ -77,6 +74,8 @@ async function init() {
 
   S.services     = await window.electronAPI.storeGet('services',     {})
   S.serviceOrder = await window.electronAPI.storeGet('serviceOrder', [])
+  var validIds = ALL_SERVICES.map(function(s){ return s.id })
+  S.serviceOrder = S.serviceOrder.filter(function(id){ return validIds.includes(id) })
   S.theme        = await window.electronAPI.storeGet('theme',        'dark')
   S.msAuthShown  = await window.electronAPI.storeGet('msAuthShown',  {})
 
@@ -84,19 +83,56 @@ async function init() {
   renderSidebar()
   setupEvents()
 
-  // 起動時：追加済みサービスのwebviewをバックグラウンドで順次生成（バッジ取得用）
+  // 起動時：全サービスのwebviewを一括生成（バッジ取得用）
   const addedServices = S.serviceOrder.filter(id => S.services[id]?.added && S.services[id]?.enabled)
-  let delay = 2000
-  addedServices.forEach((id) => {
+
+  if (addedServices.length > 0) {
+    // 最初のサービスを先にアクティブ表示
+    activateService(addedServices[0], false)
+
+    // ローディングオーバーレイを表示
+    const overlay = document.createElement('div')
+    overlay.id = 'startup-loading-overlay'
+    overlay.style.cssText = 'position:fixed;top:0;left:60px;right:0;bottom:0;background:rgba(30,30,46,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;'
+    overlay.innerHTML = `
+      <div style="width:40px;height:40px;border:3px solid rgba(166,227,161,0.3);border-top:3px solid #a6e3a1;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:20px;"></div>
+      <div style="color:#cdd6f4;font-size:15px;font-weight:600;">サービスを読み込んでいます...</div>
+      <div id="startup-loading-count" style="color:#a6adc8;font-size:13px;margin-top:8px;">0 / ${addedServices.length}</div>
+      <style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>
+    `
+    document.body.appendChild(overlay)
+
+    // 残りのサービスをバックグラウンドで一括生成
+    let loadedCount = 1
+    const countEl = () => document.getElementById('startup-loading-count')
+    if (countEl()) countEl().textContent = loadedCount + ' / ' + addedServices.length
+
     setTimeout(() => {
-      const existing = document.querySelector(`webview[data-id="${id}"]`)
-      if (!existing) {
-        console.log("[HubChat] preload webview for badge:", id)
-        activateService(id, false)
-      }
-    }, delay)
-    delay += 1500
-  })
+      const remaining = addedServices.slice(1)
+      remaining.forEach((id) => {
+        const existing = document.querySelector(`webview[data-id="${id}"]`)
+        if (!existing) {
+          console.log("[HubChat] preload webview for badge:", id)
+          activateService(id, false)
+        }
+        loadedCount++
+        if (countEl()) countEl().textContent = loadedCount + ' / ' + addedServices.length
+      })
+
+      // 最初のサービスに戻して表示
+      activateService(addedServices[0], false)
+
+      // オーバーレイをフェードアウト
+      setTimeout(() => {
+        const ol = document.getElementById('startup-loading-overlay')
+        if (ol) {
+          ol.style.transition = 'opacity 0.5s'
+          ol.style.opacity = '0'
+          setTimeout(() => ol.remove(), 500)
+        }
+      }, 1500)
+    }, 500)
+  }
 }
 
 // ============================================================
@@ -405,7 +441,7 @@ async function activateService(id, scroll = true) {
       try {
         const linkHost = new URL(linkUrl).hostname
         // 認証URL → ポップアップ許可（OAuth等で必要）
-        const authDomains = ['accounts.google.com','login.microsoftonline.com','login.live.com','appleid.apple.com','auth.line.me','access.line.me','oauth.line.me']
+        const authDomains = ['accounts.google.com','login.microsoftonline.com','login.live.com','appleid.apple.com','auth.line.me','access.line.me','oauth.line.me','facebook.com','www.facebook.com','m.facebook.com','web.facebook.com','account.line.biz']
         if (authDomains.some(d => linkHost === d || linkHost.endsWith('.' + d))) {
           showPopupOverlay(linkUrl, `persist:${id}`)
           return
@@ -772,7 +808,9 @@ function setupEvents() {
 
   document.getElementById('reset-btn').addEventListener('click', async () => {
     if (!confirm('全データをリセットします。追加したサービスがすべて削除されます。よろしいですか？')) return
+    var savedLicenseKey = await window.electronAPI.storeGet("licenseKey", null)
     await window.electronAPI.storeClear()
+    if(savedLicenseKey){ await window.electronAPI.storeSet("licenseKey", savedLicenseKey) }
     S.services = {}; S.serviceOrder = []; S.activeId = null; S.msAuthShown = {}
     document.getElementById('webview-container').innerHTML = ''
     renderSidebar(); closeSettings()
@@ -1000,10 +1038,17 @@ function showSlackDialog() {
 
 function extractUnreadCount(title) {
   if (!title) return 0
-  const match = title.match(/\((\d+)\+?\)/)
+  // (1,101) or (26) 形式（Gmail, Slack等）カンマ区切りにも対応
+  let match = title.match(/\(([\d,]+)\+?\)/)
   if (match) {
-    const num = parseInt(match[1], 10)
-    return Math.min(num, 99)
+    const num = parseInt(match[1].replace(/,/g, ''), 10)
+    return isNaN(num) ? 0 : Math.min(num, 9999)
+  }
+  // [1] 形式（Chatwork等）
+  match = title.match(/\[([\d,]+)\]/)
+  if (match) {
+    const num = parseInt(match[1].replace(/,/g, ''), 10)
+    return isNaN(num) ? 0 : Math.min(num, 9999)
   }
   return 0
 }
@@ -1018,7 +1063,7 @@ function updateBadge(id, count) {
   if (count > 0) {
     const badge = document.createElement('div')
     badge.className = 'badge'
-    badge.textContent = count > 99 ? '99' : count
+    badge.textContent = count > 99 ? '99+' : count
     iconEl.appendChild(badge)
   }
 
@@ -1081,6 +1126,100 @@ function setupBadgeWatcher(wv, id) {
       updateBadge(id, count)
     } catch(e) {}
   }, 15000)
+
+  // --- カスタムDOM監視（タイトルに未読数が出ないサービス用） ---
+  const domCheckServices = {
+    googlechat: `(function(){
+      let t = 0;
+      const els = document.querySelectorAll('[aria-label]');
+      els.forEach(el => {
+        const label = el.getAttribute('aria-label') || '';
+        const m = label.match(/(\\d+)\\s*件の未読/);
+        if (m) t += parseInt(m[1], 10);
+      });
+      return t;
+    })()`,
+    instagram: `(function(){
+      const dmLink = document.querySelector('a[href="/direct/inbox/"]');
+      if (dmLink) {
+        const dot = dmLink.querySelector('[aria-label]');
+        if (dot && dot.textContent && /\\d+/.test(dot.textContent)) return parseInt(dot.textContent,10);
+        const redDot = dmLink.querySelector('div[style*="background-color: rgb(255, 48, 64)"], div[style*="background-color:rgb(255,48,64)"], span[data-visualcompletion="css-img"]');
+        if (redDot) return -1;
+      }
+      const notifDot = document.querySelector('img[alt="Instagram"] + div, nav span[aria-label*="notification"], nav div[aria-label*="notification"]');
+      if (notifDot) return -1;
+      return 0;
+    })()`,
+    messenger: `(function(){
+      const rows = document.querySelectorAll('div[role="row"]');
+      let unread = 0;
+      for(let i=0; i<rows.length; i++){
+        const spans = rows[i].querySelectorAll('span');
+        let maxFW = 0;
+        for(let j=0; j<spans.length; j++){
+          const fw = parseInt(getComputedStyle(spans[j]).fontWeight);
+          if(fw > maxFW && spans[j].textContent.trim().length > 0) maxFW = fw;
+        }
+        if(maxFW >= 700) unread++;
+      }
+      return unread;
+    })()`,
+    outlook: `(function(){
+      const unread = document.querySelectorAll('[aria-label*="未読"]');
+      return unread.length;
+    })()`,
+    linechat: `(function(){
+      var navBadges = document.querySelectorAll(".nav-btn .badge-pill.badge-primary");
+      var t = 0;
+      navBadges.forEach(function(b){ var n = parseInt(b.textContent.trim(),10); if(!isNaN(n) && n > 0) t += n; });
+      if(t > 0) return t;
+      var dots = document.querySelectorAll(".nav-btn .badge-pill");
+      var hasUnread = false;
+      dots.forEach(function(d){ var bg = window.getComputedStyle(d).backgroundColor; if(bg.includes("0, 185, 0") || bg.includes("0, 195") || bg.includes("76, 217")) hasUnread = true; });
+      if(hasUnread) return -1;
+      return 0;
+    })()`
+    ,slack: `(function(){
+      var srEls = document.querySelectorAll(".sr-only, [aria-label]");
+      var totalMentions = 0;
+      srEls.forEach(function(el){
+        var text = el.textContent || el.getAttribute("aria-label") || "";
+        var jpMatch = text.match(/(\\d+)\\s*件の未読/);
+        var enMatch = text.match(/(\\d+)\\s*unread\\s*message/);
+        var m = jpMatch || enMatch;
+        if(m){ totalMentions += parseInt(m[1]); }
+      });
+      if(totalMentions > 0) return totalMentions;
+      var unreadChs = document.querySelectorAll(".p-channel_sidebar__channel--unread");
+      if(unreadChs.length > 0) return -1;
+      var dots = document.querySelectorAll(".p-team_sidebar__unread_dot, .p-unread_dot");
+      if(dots.length > 0) return -1;
+      return 0;
+    })()`
+  }
+
+  if (domCheckServices[id]) {
+    const domCheck = () => {
+      try {
+        wv.executeJavaScript(domCheckServices[id]).then(result => {
+          if (result === -1) {
+            // ドット表示（数字なし通知）
+            const iconEl = document.querySelector('.svc-icon[data-id="' + id + '"]')
+            if (iconEl && !iconEl.querySelector('.badge')) {
+              const badge = document.createElement('div')
+              badge.className = 'badge dot'
+              iconEl.appendChild(badge)
+            }
+          } else if (typeof result === 'number' && result > 0) {
+            updateBadge(id, result)
+          }
+        }).catch(() => {})
+      } catch(e) {}
+    }
+    wv.addEventListener('dom-ready', () => { setTimeout(domCheck, 8000); setTimeout(domCheck, 15000) })
+    setInterval(domCheck, 15000)
+  }
 }
 
 // ============================================================
@@ -1348,9 +1487,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const key = planKeyInput.value.trim()
     if (!key) return alert('ライセンスキーを入力してください')
     try {
-      const res = await window.api.verifyLicense(key)
+      const res = await window.electronAPI.verifyLicense(key)
       if (res.status === 'active') {
         localStorage.setItem('hc_license_key', key)
+        await window.electronAPI.storeSet("licenseKey", key)
+        licenseStatus = { plan: "pro", key: key, email: res.email }
         alert('プロプランが有効になりました！')
         updatePlanStatus()
         updateLicenseUI()
@@ -1360,9 +1501,28 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch(e) { alert('認証エラー: ' + e.message) }
   })
   if (planUpgrade) planUpgrade.addEventListener('click', () => {
-    const email = prompt('メールアドレスを入力してください（ライセンスキー送付先）')
-    if (!email) return
-    window.api.openExternal('https://credit.j-payment.co.jp/link/creditcard?aid=121199&iid=0026&mailauthckey=852b86bade4f4aaaa875befcdad0cb03&cod=' + encodeURIComponent(email))
+    const overlay = document.createElement('div')
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:center;justify-content:center;'
+    const box = document.createElement('div')
+    box.style.cssText = 'background:var(--bg-card,#2a2a3e);border-radius:16px;padding:32px;width:400px;max-width:90vw;color:var(--text-main,#fff);text-align:center;'
+    box.innerHTML = `
+      <h3 style="margin:0 0 12px;font-size:18px;">メールアドレスを入力</h3>
+      <p style="margin:0 0 16px;font-size:13px;color:var(--text-sub);">ライセンスキーの送付先になります</p>
+      <input id="upgrade-email-input" type="email" placeholder="example@mail.com" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #444;background:var(--bg-main,#1a1a2e);color:#fff;font-size:14px;margin-bottom:16px;outline:none;">
+      <button id="upgrade-email-ok" style="width:100%;padding:12px;background:#06C755;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">決済ページへ進む</button>
+      <button id="upgrade-email-cancel" style="width:100%;padding:10px;background:var(--bg-hover);color:var(--text-sub);border:none;border-radius:8px;font-size:13px;cursor:pointer;">キャンセル</button>
+    `
+    overlay.appendChild(box)
+    document.body.appendChild(overlay)
+    box.querySelector('#upgrade-email-ok').addEventListener('click', () => {
+      const email = box.querySelector('#upgrade-email-input').value.trim()
+      if (!email) { box.querySelector('#upgrade-email-input').style.borderColor = '#f44'; return }
+      window.electronAPI.openExternal('https://buy.stripe.com/7sY5kD3rz56ic5G54H9oc05?client_reference_id=' + encodeURIComponent(email) + '&prefilled_email=' + encodeURIComponent(email) )
+      document.body.removeChild(overlay)
+    })
+    box.querySelector('#upgrade-email-cancel').addEventListener('click', () => { document.body.removeChild(overlay) })
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay) })
+    setTimeout(() => box.querySelector('#upgrade-email-input').focus(), 100)
   })
   if (helpBtn) helpBtn.addEventListener('click', openHelp)
   if (helpCloseBtn) helpCloseBtn.addEventListener('click', closeHelp)
@@ -1400,23 +1560,119 @@ document.addEventListener('click', (e) => {
 // License Management
 // ============================================================
 const HC_API = 'https://ydk-business.com/hubchat/api/'
-const HC_PAYMENT_URL = 'https://credit.j-payment.co.jp/link/creditcard?aid=121199&iid=0026&mailauthckey=852b86bade4f4aaaa875befcdad0cb03'
-const FREE_PLAN_LIMIT = 999
+const HC_PAYMENT_URL = 'https://buy.stripe.com/7sY5kD3rz56ic5G54H9oc05'
+const FREE_PLAN_LIMIT = 3
 
 let licenseStatus = { plan: 'free', key: null, email: null }
 
 async function initLicense() {
+  const previousPlan = await window.electronAPI.storeGet('lastKnownPlan', 'free')
   const savedKey = await window.electronAPI.storeGet('licenseKey', null)
-  if (savedKey) {
-    const result = await window.electronAPI.verifyLicense(savedKey)
+  var keyToCheck = savedKey || localStorage.getItem("hc_license_key")
+  if (keyToCheck) {
+    const result = await window.electronAPI.verifyLicense(keyToCheck)
     if (result && result.status === 'active') {
-      licenseStatus = { plan: 'pro', key: savedKey, email: result.email }
+      licenseStatus = { plan: "pro", key: keyToCheck, email: result.email }
+      if(!savedKey){ await window.electronAPI.storeSet("licenseKey", keyToCheck) }
+      await window.electronAPI.storeSet("lastKnownPlan", "pro")
     } else {
-      licenseStatus = { plan: 'free', key: null, email: null }
-      await window.electronAPI.storeDelete('licenseKey')
+      licenseStatus = { plan: "free", key: null, email: null }
+      await window.electronAPI.storeDelete("licenseKey")
+      localStorage.removeItem("hc_license_key")
+      await window.electronAPI.storeSet("lastKnownPlan", "free")
+      if (previousPlan === "pro") {
+        showDowngradeNotice()
+      }
     }
   }
+  if (!keyToCheck && previousPlan === "pro") {
+    licenseStatus = { plan: "free", key: null, email: null }
+    await window.electronAPI.storeSet("lastKnownPlan", "free")
+    showDowngradeNotice()
+  }
   updateLicenseUI()
+  startPeriodicLicenseCheck()
+}
+
+function showDowngradeNotice() {
+  if (S.serviceOrder.length <= FREE_PLAN_LIMIT) {
+    var msg = document.createElement("div")
+    msg.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99999"
+    msg.innerHTML = '<div style="background:var(--bg-main,#1e1e1e);border-radius:12px;padding:30px;max-width:420px;text-align:center;color:var(--text-main,#fff)">' +
+      '<h3 style="margin:0 0 15px;font-size:18px">プランが変更されました</h3>' +
+      '<p style="margin:0 0 20px;font-size:14px;color:var(--text-sub,#aaa);line-height:1.7">ライセンスの有効期限が切れたため、フリープランに変更されました。<br>フリープランでは' + FREE_PLAN_LIMIT + 'サービスまでご利用いただけます。</p>' +
+      '<button id="downgrade-ok-btn" style="background:#f90;color:#fff;border:none;border-radius:8px;padding:10px 30px;font-size:14px;cursor:pointer">OK</button></div>'
+    document.body.appendChild(msg)
+    document.getElementById("downgrade-ok-btn").onclick = function() { msg.remove() }
+    return
+  }
+  showServiceSelectDialog()
+}
+
+function showServiceSelectDialog() {
+  var overlay = document.createElement("div")
+  overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99999"
+  var serviceListHtml = ""
+  S.serviceOrder.forEach(function(id, idx) {
+    var svc = S.services[id]
+    var name = svc ? (svc.name || id) : id
+    var checked = idx < FREE_PLAN_LIMIT ? "checked" : ""
+    serviceListHtml += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px;cursor:pointer"><input type="checkbox" class="downgrade-svc-cb" value="' + id + '" ' + checked + '> ' + name + '</label>'
+  })
+  overlay.innerHTML = '<div style="background:var(--bg-main,#1e1e1e);border-radius:12px;padding:30px;max-width:420px;color:var(--text-main,#fff)">' +
+    '<h3 style="margin:0 0 10px;font-size:18px">プランが変更されました</h3>' +
+    '<p style="margin:0 0 15px;font-size:14px;color:var(--text-sub,#aaa);line-height:1.7">ライセンスの有効期限が切れたため、フリープランに変更されました。<br>残す' + FREE_PLAN_LIMIT + 'つのサービスを選んでください：</p>' +
+    '<div id="downgrade-svc-list" style="max-height:300px;overflow-y:auto;margin:0 0 15px">' + serviceListHtml + '</div>' +
+    '<p id="downgrade-count" style="margin:0 0 15px;font-size:13px;color:var(--text-sub,#aaa)"></p>' +
+    '<button id="downgrade-confirm-btn" style="background:#f90;color:#fff;border:none;border-radius:8px;padding:10px 30px;font-size:14px;cursor:pointer;width:100%">確定</button></div>'
+  document.body.appendChild(overlay)
+  function updateCount() {
+    var checked = overlay.querySelectorAll(".downgrade-svc-cb:checked").length
+    var countEl = document.getElementById("downgrade-count")
+    countEl.textContent = checked + " / " + FREE_PLAN_LIMIT + " 選択中"
+    countEl.style.color = checked === FREE_PLAN_LIMIT ? "#4caf50" : (checked > FREE_PLAN_LIMIT ? "#f44336" : "var(--text-sub,#aaa)")
+    document.getElementById("downgrade-confirm-btn").disabled = checked !== FREE_PLAN_LIMIT
+  }
+  overlay.querySelectorAll(".downgrade-svc-cb").forEach(function(cb) {
+    cb.addEventListener("change", updateCount)
+  })
+  updateCount()
+  document.getElementById("downgrade-confirm-btn").onclick = function() {
+    var checked = Array.from(overlay.querySelectorAll(".downgrade-svc-cb:checked")).map(function(cb) { return cb.value })
+    if (checked.length !== FREE_PLAN_LIMIT) return
+    var removed = S.serviceOrder.filter(function(id) { return checked.indexOf(id) === -1 })
+    removed.forEach(function(id) { if(S.services[id]) S.services[id].added = false })
+    S.serviceOrder = checked
+    renderSidebar()
+    if (S.serviceOrder.length > 0) activateService(S.serviceOrder[0])
+    overlay.remove()
+  }
+}
+
+var _licenseCheckTimer = null
+function startPeriodicLicenseCheck() {
+  if (_licenseCheckTimer) clearInterval(_licenseCheckTimer)
+  _licenseCheckTimer = setInterval(async function() {
+    if (licenseStatus.plan !== "pro" || !licenseStatus.key) return
+    try {
+      var result = await window.electronAPI.verifyLicense(licenseStatus.key)
+      if (!result || result.status !== "active") {
+        console.log("[HubChat] Periodic check: license no longer active")
+        licenseStatus = { plan: "free", key: null, email: null }
+        await window.electronAPI.storeDelete("licenseKey")
+        localStorage.removeItem("hc_license_key")
+        await window.electronAPI.storeSet("lastKnownPlan", "free")
+        updateLicenseUI()
+        if (S.serviceOrder.length > FREE_PLAN_LIMIT) {
+          showServiceSelectDialog()
+        } else {
+          showDowngradeNotice()
+        }
+      }
+    } catch(e) {
+      console.log("[HubChat] Periodic license check error:", e)
+    }
+  }, 60 * 60 * 1000)
 }
 
 function updateLicenseUI() {
@@ -1517,6 +1773,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (result && result.status === 'active') {
         licenseStatus = { plan: 'pro', key: key, email: result.email }
         await window.electronAPI.storeSet('licenseKey', key)
+        console.log("[HubChat-DEBUG] storeSet licenseKey called with:", key)
         updateLicenseUI()
         renderSidebar()
       } else {
@@ -1594,6 +1851,52 @@ document.addEventListener("keydown", (e) => {
   }
 })
 
+
+// ズーム機能: Cmd/Ctrl + Plus で拡大、Cmd/Ctrl + Minus で縮小、Cmd/Ctrl + 0 でリセット
+var serviceZoomLevels = {}
+document.addEventListener("keydown", (e) => {
+  var isMac = /Mac/.test(navigator.platform)
+  var mod = isMac ? e.metaKey : e.ctrlKey
+  if (!mod || e.altKey) return
+  var zoomChange = 0
+  var isReset = false
+  if (e.shiftKey && (e.key === "_" || e.code === "Minus")) { zoomChange = 0.1 }
+  else if (!e.shiftKey && (e.key === "-" || e.code === "Minus")) { zoomChange = -0.1 }
+  else if (!e.shiftKey && (e.key === "0" || e.code === "Digit0")) { isReset = true }
+  else return
+  e.preventDefault()
+  if (!S.activeId) return
+  var wv = document.querySelector("webview[data-id='" + S.activeId + "']")
+  if (!wv) return
+  if (isReset) {
+    serviceZoomLevels[S.activeId] = 0
+    wv.setZoomLevel(0)
+  } else {
+    var current = serviceZoomLevels[S.activeId] || 0
+    var newLevel = Math.max(-5, Math.min(5, current + zoomChange))
+    serviceZoomLevels[S.activeId] = newLevel
+    wv.setZoomLevel(newLevel)
+  }
+})
+
+// IPC経由のズーム（webviewフォーカス中のCmd+/-/0）
+if (window.electronAPI && window.electronAPI.onZoomService) {
+  window.electronAPI.onZoomService((key) => {
+    if (!S.activeId) return
+    var wv = document.querySelector("webview[data-id='" + S.activeId + "']")
+    if (!wv) return
+    if (key === "0") {
+      serviceZoomLevels[S.activeId] = 0
+      wv.setZoomLevel(0)
+    } else {
+      var change = (key === "_") ? 0.1 : -0.1
+      var current = serviceZoomLevels[S.activeId] || 0
+      var newLevel = Math.max(-5, Math.min(5, current + change))
+      serviceZoomLevels[S.activeId] = newLevel
+      wv.setZoomLevel(newLevel)
+    }
+  })
+}
 // IPC経由のサービス切替（webviewフォーカス中のショートカット）
 if (window.electronAPI && window.electronAPI.onCycleService) {
   window.electronAPI.onCycleService((direction) => {
@@ -1645,6 +1948,10 @@ init = async function() {
   try {
     await initLicense()
     console.log('[HubChat-DEBUG] initLicense() completed')
+    if(licenseStatus.plan === "free" && S.serviceOrder.length > FREE_PLAN_LIMIT){
+      console.log("[HubChat] Free plan: services exceed limit, showing selection dialog")
+      showServiceSelectDialog()
+    }
   } catch(e) {
     console.error('[HubChat-DEBUG] initLicense() FAILED:', e)
   }
