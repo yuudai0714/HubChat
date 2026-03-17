@@ -1,6 +1,6 @@
 {
   "name": "hubchat",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "HubChat - 統合メッセージ管理デスクトップアプリ",
   "main": "main.js",
   "scripts": {

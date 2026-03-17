@@ -1962,3 +1962,30 @@ init = async function() {
     console.error('[HubChat-DEBUG] syncServiceDomains() FAILED:', e)
   }
 }
+
+
+// バージョン情報表示
+async function showVersionInfo() {
+  try {
+    const info = await window.electronAPI.getAppVersion()
+    const el = document.getElementById('current-version')
+    if (el) el.textContent = 'v' + info.current
+
+    const statusEl = document.getElementById('version-status')
+    if (statusEl && info.latest) {
+      if (info.latest === info.current) {
+        statusEl.textContent = '最新バージョンです'
+        statusEl.style.color = '#4CAF50'
+      } else {
+        statusEl.textContent = '最新バージョン v' + info.latest + ' が利用可能です'
+        statusEl.style.color = '#f90'
+      }
+    } else if (statusEl) {
+      statusEl.textContent = 'バージョン確認に失敗しました'
+      statusEl.style.color = '#aaa'
+    }
+  } catch(e) {
+    console.log('[HubChat] version check error:', e)
+  }
+}
+document.addEventListener('DOMContentLoaded', showVersionInfo)

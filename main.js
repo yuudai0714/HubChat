@@ -493,6 +493,19 @@ ipcMain.handle('verify-license', async (event, key) => {
   }
 })
 
+ipcMain.handle('get-app-version', async () => {
+  const ver = app.getVersion()
+  let latest = null
+  try {
+    const res = await require('electron').net.fetch('https://api.github.com/repos/yuudai0714/HubChat/releases/latest', {
+      headers: { 'Accept': 'application/vnd.github.v3+json' }
+    })
+    const data = await res.json()
+    latest = (data.tag_name || '').replace('v', '')
+  } catch(e) { console.log('[HubChat] version fetch error:', e) }
+  return { current: ver, latest: latest }
+})
+
 ipcMain.handle('open-external', (event, url) => {
   openExternalOnce(url)
 })
