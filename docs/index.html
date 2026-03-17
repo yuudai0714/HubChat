@@ -161,8 +161,17 @@
     .footer a { color: #888; text-decoration: none; }
     .footer a:hover { color: #f7931e; }
     @media (max-width: 600px) {
-      h1 { font-size: 32px; }
-      .download-btn { min-width: 260px; }
+      h1 { font-size: 28px; }
+      .subtitle { font-size: 14px; }
+      .download-section { padding: 0 16px 40px; }
+      .download-btn { min-width: 100%; max-width: 100%; font-size: 15px; }
+      .features, .services-section { padding: 0 16px 40px; }
+      .features h2, .services-section h2 { font-size: 22px; margin-bottom: 24px; }
+      .feature-grid { grid-template-columns: 1fr; gap: 16px; }
+      .feature-card { padding: 20px; }
+      .service-list { gap: 8px; }
+      .service-tag { font-size: 13px; padding: 6px 12px; }
+      .price { font-size: 14px; }
     }
   </style>
 </head>
@@ -280,6 +289,7 @@
       <div class="service-list">
         <span class="service-tag">Gemini</span>
         <span class="service-tag">ChatGPT</span>
+        <span class="service-tag">NotebookLM</span>
       </div>
     </div>
 
