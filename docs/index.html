@@ -183,20 +183,33 @@
     <p class="price"><span>3サービスまで無料</span> ／ 無制限は月額550円（7日間無料トライアル）</p>
   </div>
 
-  <div class="download-section">
-    <a href="https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-1.0.4-arm64.dmg" class="download-btn btn-primary">
+  <div class="download-section" id="download-section">
+    <a id="dl-mac-arm" href="https://github.com/yuudai0714/HubChat/releases/latest" class="download-btn btn-primary">
       Mac (Apple Silicon) をダウンロード
       <span class="btn-label">M1 / M2 / M3 / M4</span>
     </a>
-    <a href="https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-1.0.4.dmg" class="download-btn btn-secondary">
+    <a id="dl-mac-intel" href="https://github.com/yuudai0714/HubChat/releases/latest" class="download-btn btn-secondary">
       Mac (Intel) をダウンロード
       <span class="btn-label">2020年以前のMac</span>
     </a>
-    <a href="https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-Setup-1.0.4.exe" class="download-btn btn-secondary">
+    <a id="dl-win" href="https://github.com/yuudai0714/HubChat/releases/latest" class="download-btn btn-secondary">
       Windows をダウンロード
       <span class="btn-label">Windows 10 / 11</span>
     </a>
   </div>
+  <script>
+    (async function() {
+      try {
+        var res = await fetch('https://api.github.com/repos/yuudai0714/HubChat/releases/latest');
+        var data = await res.json();
+        var v = data.tag_name.replace('v', '');
+        var base = 'https://github.com/yuudai0714/HubChat/releases/latest/download/';
+        document.getElementById('dl-mac-arm').href = base + 'HubChat-' + v + '-arm64.dmg';
+        document.getElementById('dl-mac-intel').href = base + 'HubChat-' + v + '.dmg';
+        document.getElementById('dl-win').href = base + 'HubChat-Setup-' + v + '.exe';
+      } catch(e) {}
+    })();
+  </script>
 
   <div class="features">
     <h2>特徴</h2>
