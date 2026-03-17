@@ -1,6 +1,6 @@
 {
   "name": "hubchat",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "HubChat - 統合メッセージ管理デスクトップアプリ",
   "main": "main.js",
   "scripts": {
@@ -57,7 +57,8 @@
   },
   "dependencies": {
     "electron-store": "^8.1.0",
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.3",
+    "node-machine-id": "^1.1.12"
   },
   "devDependencies": {
     "electron": "^28.3.3",

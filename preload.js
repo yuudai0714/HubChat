@@ -28,6 +28,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () =>
     ipcRenderer.invoke('get-app-version'),
 
+  // ライセンスアクティベーション
+  activateLicense: (key) =>
+    ipcRenderer.invoke('activate-license', key),
+
   // ライセンス検証
   verifyLicense: (key) =>
     ipcRenderer.invoke('verify-license', key),

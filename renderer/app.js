@@ -1488,7 +1488,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!key) return alert('ライセンスキーを入力してください')
     try {
       const res = await window.electronAPI.verifyLicense(key)
+      if (res.status === 'device_mismatch') {
+        alert('このライセンスキーは別の端末で使用されています')
+        return
+      }
       if (res.status === 'active') {
+        // 端末紐付け
+        const actRes = await window.electronAPI.activateLicense(key)
+        if (actRes.status === 'device_mismatch') {
+          alert('このライセンスキーは別の端末で使用されています')
+          return
+        }
         localStorage.setItem('hc_license_key', key)
         await window.electronAPI.storeSet("licenseKey", key)
         licenseStatus = { plan: "pro", key: key, email: res.email }
@@ -1770,7 +1780,20 @@ document.addEventListener('DOMContentLoaded', () => {
       e.target.textContent = '確認中...'
       e.target.disabled = true
       const result = await window.electronAPI.verifyLicense(key)
+      if (result && result.status === 'device_mismatch') {
+        alert('このライセンスキーは別の端末で使用されています')
+        e.target.textContent = '認証'
+        e.target.disabled = false
+        return
+      }
       if (result && result.status === 'active') {
+        const actRes = await window.electronAPI.activateLicense(key)
+        if (actRes && actRes.status === 'device_mismatch') {
+          alert('このライセンスキーは別の端末で使用されています')
+          e.target.textContent = '認証'
+          e.target.disabled = false
+          return
+        }
         licenseStatus = { plan: 'pro', key: key, email: result.email }
         await window.electronAPI.storeSet('licenseKey', key)
         console.log("[HubChat-DEBUG] storeSet licenseKey called with:", key)

@@ -464,11 +464,49 @@ ipcMain.handle('store-clear', () => {
 })
 
 
+// 端末固有ID生成
+function getMachineId() {
+  const { machineIdSync } = require('node-machine-id')
+  try { return machineIdSync(true) } catch(e) {
+    // フォールバック: ホスト名+ユーザー名のハッシュ
+    const crypto = require('crypto')
+    const os = require('os')
+    const raw = os.hostname() + os.userInfo().username + os.platform() + os.arch()
+    return crypto.createHash('sha256').update(raw).digest('hex').substring(0, 32)
+  }
+}
+
+// ライセンスアクティベーション（端末紐付け）
+ipcMain.handle('activate-license', async (event, key) => {
+  try {
+    const machineId = getMachineId()
+    const postData = JSON.stringify({ action: 'activate', key: key, machine_id: machineId })
+    return await new Promise((resolve) => {
+      const request = require('electron').net.request({
+        method: 'POST',
+        url: 'https://ydk-business.com/hubchat/api/license.php'
+      })
+      request.setHeader('Content-Type', 'application/json')
+      let body = ''
+      request.on('response', (response) => {
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          try { resolve(JSON.parse(body)) } catch(e) { resolve({ status: 'error', message: 'Parse error' }) }
+        })
+      })
+      request.on('error', (err) => { resolve({ status: 'error', message: err.message }) })
+      request.write(postData)
+      request.end()
+    })
+  } catch(e) { return { status: 'error', message: e.message } }
+})
+
 ipcMain.handle('verify-license', async (event, key) => {
   try {
     const net = require('electron').net
     return new Promise((resolve) => {
-      const postData = JSON.stringify({ action: 'verify', key: key })
+      const machineId = getMachineId()
+      const postData = JSON.stringify({ action: 'verify', key: key, machine_id: machineId })
       const request = net.request({
         method: 'POST',
         url: 'https://ydk-business.com/hubchat/api/license.php',
