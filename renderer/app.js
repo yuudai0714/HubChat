@@ -26,6 +26,7 @@ const ALL_SERVICES = [
   // ── AI ──
   { id:'gemini',     name:'Gemini',          url:'https://gemini.google.com/app',           category:'ai',          color:'#4285F4', domain:'gemini.google.com', icon:'https://www.gstatic.com/lamda/images/gemini_favicon_f069958c85030456e93de685481c559f160ea06b.png' },
   { id:"chatgpt", name:"ChatGPT", url:"https://chatgpt.com", category:"ai", color:"#10A37F", domain:"chatgpt.com", icon:"https://cdn.oaistatic.com/_next/static/media/apple-touch-icon.59f2e898.png" },
+  { id:"notebooklm", name:"NotebookLM", url:"https://notebooklm.google.com/", category:"ai", color:"#FBBC04", domain:"notebooklm.google.com", icon:"https://notebooklm.google.com/favicon.ico" },
   // ── 生産性 ──
   { id:'gcal',       name:'Googleカレンダー',url:'https://calendar.google.com/calendar/',    category:'google',color:'#4285F4', domain:'calendar.google.com', icon:'https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_31_2x.png' },
   { id:'gtasks',     name:'Googleタスク',    url:'https://tasks.google.com/embed/?origin=https://calendar.google.com&fullWidth=1', category:'google',color:'#34A853', domain:'tasks.google.com', icon:'https://ssl.gstatic.com/tasks/images/icon_2022q4_v2/favicon.ico' },

@@ -1,6 +1,6 @@
 {
   "name": "hubchat",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "HubChat - 統合メッセージ管理デスクトップアプリ",
   "main": "main.js",
   "scripts": {
@@ -34,7 +34,9 @@
         }
       ],
       "icon": "build/icon.icns",
-      "notarize": false
+      "notarize": {
+        "teamId": "8HFRV8RY9W"
+      }
     },
     "win": {
       "target": [
