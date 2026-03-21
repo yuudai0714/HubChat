@@ -24,6 +24,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) =>
     ipcRenderer.invoke('open-external', url),
 
+  // 学習データ取得
+  getLearningData: () =>
+    ipcRenderer.invoke('get-learning-data'),
+
   // バージョン取得
   getAppVersion: () =>
     ipcRenderer.invoke('get-app-version'),

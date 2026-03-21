@@ -2013,3 +2013,65 @@ async function showVersionInfo() {
   }
 }
 document.addEventListener('DOMContentLoaded', showVersionInfo)
+
+
+// ============================================
+// 学習（スキルアップ）機能
+// ============================================
+const LEARNING_API = 'https://ydk-business.com/hubchat/api/data/learning.json';
+
+document.getElementById('learn-btn')?.addEventListener('click', async () => {
+  const modal = document.getElementById('learn-modal');
+  const content = document.getElementById('learn-content');
+  modal.classList.remove('hidden');
+  content.innerHTML = '<p style="color:var(--text-sub);text-align:center;padding:40px 0;">読み込み中...</p>';
+
+  try {
+    const data = await window.electronAPI.getLearningData();
+    if (data.error) throw new Error(data.error);
+    let html = '';
+    for (const cat of data.categories) {
+      html += '<div style="margin-bottom:24px;">';
+      html += '<h3 style="font-size:16px;margin-bottom:12px;">' + cat.icon + ' ' + cat.name + '</h3>';
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
+      for (const art of cat.articles) {
+        const tags = (art.tags || []).map(t => '<span style="background:var(--bg-hover,#333);padding:2px 8px;border-radius:4px;font-size:11px;color:var(--text-sub);">' + t + '</span>').join(' ');
+        html += '<div class="learn-card" data-url="' + art.url + '" data-title="' + art.title + '" style="background:var(--bg-card,#2a2a3e);border:1px solid var(--border-color,#333);border-radius:10px;padding:16px;cursor:pointer;transition:border-color 0.2s;">';
+        html += '<h4 style="margin:0 0 8px;font-size:14px;color:var(--text-main,#fff);">' + art.title + '</h4>';
+        html += '<p style="margin:0 0 10px;font-size:12px;color:var(--text-sub,#aaa);line-height:1.5;">' + art.description + '</p>';
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + tags + '</div>';
+        html += '</div>';
+      }
+      html += '</div></div>';
+    }
+    if (!html) html = '<p style="color:var(--text-sub);text-align:center;padding:40px 0;">記事がまだありません</p>';
+    content.innerHTML = html;
+
+    content.querySelectorAll('.learn-card').forEach(card => {
+      card.addEventListener('mouseenter', () => card.style.borderColor = '#f7931e');
+      card.addEventListener('mouseleave', () => card.style.borderColor = 'var(--border-color,#333)');
+      card.addEventListener('click', () => {
+        const url = card.dataset.url;
+        if (window.electronAPI && window.electronAPI.openExternal) {
+          window.electronAPI.openExternal(url);
+        }
+      });
+    });
+  } catch(e) {
+    content.innerHTML = '<p style="color:#ff6b6b;text-align:center;padding:40px 0;">読み込みに失敗しました</p>';
+  }
+});
+
+// 学習モーダル閉じる処理（DOMContentLoaded内で実行）
+document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'learn-close-btn' || e.target.id === 'learn-overlay') {
+      document.getElementById('learn-modal').classList.add('hidden');
+    }
+    if (e.target.id === 'learn-article-close-btn' || e.target.id === 'learn-article-overlay') {
+      document.getElementById('learn-article-modal').classList.add('hidden');
+      const wv = document.getElementById('learn-article-webview');
+      if (wv) wv.src = 'about:blank';
+    }
+  });
+});

@@ -531,6 +531,17 @@ ipcMain.handle('verify-license', async (event, key) => {
   }
 })
 
+ipcMain.handle('get-learning-data', async () => {
+  try {
+    const { net } = require('electron');
+    const resp = await net.fetch('https://ydk-business.com/hubchat/api/data/learning.json');
+    const text = await resp.text();
+    return JSON.parse(text);
+  } catch(e) {
+    return { error: e.message };
+  }
+});
+
 ipcMain.handle('get-app-version', async () => {
   const ver = app.getVersion()
   let latest = null
