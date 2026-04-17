@@ -244,15 +244,15 @@ function createWindow() {
     })
 
 
-    // ショートカットキー: webviewフォーカス中でもCmd/Ctrl+Shift+Arrow を捕捉
+    // ショートカットキー: webviewフォーカス中でもCmd/Ctrl+Shift+[ ] を捕捉
     webviewContents.on("before-input-event", (event, input) => {
       const modOk = process.platform === "darwin"
         ? (input.meta && input.shift && !input.alt)
         : (input.control && input.shift && !input.alt)
       if (!modOk) return
-      if (input.key !== "ArrowUp" && input.key !== "ArrowDown") return
+      if (input.key !== "[" && input.key !== "]") return
       event.preventDefault()
-      mainWindow.webContents.send("cycle-service", input.key === "ArrowDown" ? "down" : "up")
+      mainWindow.webContents.send("cycle-service", input.key === "]" ? "down" : "up")
     })
 
     // ショートカットキー: Cmd/Ctrl+1〜9 でサービス番号指定切替

@@ -1835,7 +1835,7 @@ document.addEventListener('keydown', (e) => {
   const isMac = /Mac/.test(navigator.platform)
   const modOk = isMac ? (e.metaKey && e.shiftKey && !e.altKey) : (e.ctrlKey && e.shiftKey && !e.altKey)
   if (!modOk) return
-  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+  if (e.key !== '[' && e.key !== ']') return
   e.preventDefault()
   e.stopPropagation()
 
@@ -1847,7 +1847,7 @@ document.addEventListener('keydown', (e) => {
   let idx = order.indexOf(current)
   if (idx === -1) idx = 0
 
-  if (e.key === 'ArrowDown') {
+  if (e.key === ']') {
     idx = (idx + 1) % order.length
   } else {
     idx = (idx - 1 + order.length) % order.length
