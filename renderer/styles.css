@@ -237,6 +237,8 @@ body {
   transform: scale(1.06);
 }
 .sidebar-icon-btn svg { width: 20px; height: 20px; }
+.sidebar-icon-btn--plan { color: var(--accent, #f7931e); }
+.sidebar-icon-btn--plan:hover { color: #fff; background: rgba(247,147,30,.25); }
 
 .mac #sidebar { padding-top: 30px; }
 
@@ -818,4 +820,10 @@ webview.active { display: flex; }
   width: 24px; height: 1px; margin: 4px auto;
   background: rgba(255,255,255,0.15);
 }
+
+
+/* 学習ボタンの絵文字サイズ統一 */
+#learn-btn { font-size: 22px; }
+
+/* NotebookLM アイコン背景を白にして視認性確保 */
 

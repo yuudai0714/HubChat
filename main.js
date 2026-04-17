@@ -48,6 +48,7 @@ const path = require('path')
 const Store = require('electron-store')
 
 const store = new Store()
+const trackedWebviews = new Map()
 let mainWindow
 let addedServiceDomains = []
 
@@ -200,6 +201,18 @@ function createWindow() {
   })
 
   mainWindow.webContents.on('did-attach-webview', (event, webviewContents) => {
+    // バッジ監視用: webContentsを記録
+    webviewContents.on('did-finish-load', () => {
+      try {
+        const url = webviewContents.getURL()
+        if (url && url !== 'about:blank') {
+          trackedWebviews.set(webviewContents.id, webviewContents)
+        }
+      } catch(e) {}
+    })
+    webviewContents.on('destroyed', () => {
+      trackedWebviews.delete(webviewContents.id)
+    })
     const ses = webviewContents.session
     applySessionFixes(ses)
     webviewContents.setUserAgent(CHROME_UA)
@@ -396,6 +409,155 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  // --- メインプロセスからのバッジ監視（15秒後に開始、5秒ごと） ---
+  setTimeout(() => {
+    setInterval(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return
+      const badges = {}
+      const domChecks = []
+      trackedWebviews.forEach((wc, id) => {
+        try {
+          if (!wc.isDestroyed()) {
+            const title = wc.getTitle()
+            const url = wc.getURL()
+            if (title && url && url !== 'about:blank') {
+              badges[url] = title
+              // Google Chat: DOMから未読数を取得（キャッシュ付き）
+              if (url.includes('chat.google.com')) {
+                const p = wc.executeJavaScript(`(function(){
+                  let t=0;
+                  document.querySelectorAll('[aria-label]').forEach(el=>{
+                    const m=(el.getAttribute('aria-label')||'').match(/(\\d+)\\s*件の未読/);
+                    if(m)t+=parseInt(m[1],10);
+                  });
+                  if(t===0){
+                    const unread=document.querySelectorAll('.aIO,.bDi,[data-unread-count]');
+                    unread.forEach(el=>{
+                      const c=parseInt(el.getAttribute('data-unread-count')||el.textContent,10);
+                      if(c>0)t+=c;
+                    });
+                  }
+                  if(t===0){
+                    const bolded=document.querySelectorAll('.IL.ot,.Zc1Bff,.ygtBn');
+                    if(bolded.length>0)t=bolded.length;
+                  }
+                  return t;
+                })()`).then(count => {
+                  if (!global._gchatLastCount) global._gchatLastCount = {val:0, zeroStreak:0}
+                  if (count > 0) {
+                    global._gchatLastCount.val = count
+                    global._gchatLastCount.zeroStreak = 0
+                    badges[url] = '[' + count + '] Google Chat'
+                  } else {
+                    global._gchatLastCount.zeroStreak++
+                    if (global._gchatLastCount.zeroStreak < 6 && global._gchatLastCount.val > 0) {
+                      badges[url] = '[' + global._gchatLastCount.val + '] Google Chat'
+                    } else {
+                      global._gchatLastCount.val = 0
+                    }
+                  }
+                }).catch(() => {})
+                domChecks.push(p)
+              }
+              // Instagram: DOMから通知検出
+              if (url.includes('instagram.com')) {
+                const p = wc.executeJavaScript(`(function(){
+                  const dmLink=document.querySelector('a[href="/direct/inbox/"]');
+                  if(dmLink){
+                    const dot=dmLink.querySelector('[aria-label]');
+                    if(dot&&dot.textContent&&/\\d+/.test(dot.textContent))return parseInt(dot.textContent,10);
+                  }
+                  return 0;
+                })()`).then(count => {
+                  if (count > 0) badges[url] = '(' + count + ') Instagram'
+                }).catch(() => {})
+                domChecks.push(p)
+              }
+              // Slack: DOMから未読数を取得
+              if (url.includes('slack.com')) {
+                const p = wc.executeJavaScript(`(function(){
+                  let t=0;
+                  document.querySelectorAll('.p-channel_sidebar__badge').forEach(el=>{
+                    const n=parseInt(el.textContent,10);
+                    if(n>0)t+=n;
+                  });
+                  if(t===0){
+                    const mentions=document.querySelectorAll('[data-qa="channel_sidebar_name_-_mentions_badge"],.c-mention_badge');
+                    mentions.forEach(el=>{const n=parseInt(el.textContent,10);if(n>0)t+=n;});
+                  }
+                  return t;
+                })()`).then(count => {
+                  if (count > 0) badges[url] = '(' + count + ') Slack'
+                }).catch(() => {})
+                domChecks.push(p)
+              }
+              // Messenger: DOMから未読数を取得
+              if (url.includes('messenger.com')) {
+                const p = wc.executeJavaScript(`(function(){
+                  const el=document.querySelector('[aria-label*="unread"],.x1rg5ohu');
+                  if(el){
+                    const m=el.textContent.match(/(\\d+)/);
+                    if(m)return parseInt(m[1],10);
+                    return 1;
+                  }
+                  return 0;
+                })()`).then(count => {
+                  if (count > 0) badges[url] = '(' + count + ') Messenger'
+                }).catch(() => {})
+                domChecks.push(p)
+              }
+              // X (Twitter): DOMから未読数を取得
+              if (url.includes('x.com')) {
+                const p = wc.executeJavaScript(`(function(){
+                  let t=0;
+                  document.querySelectorAll('[aria-label*="unread"],a[href="/notifications"] [aria-live]').forEach(el=>{
+                    const m=(el.getAttribute('aria-label')||el.textContent||'').match(/(\\d+)/);
+                    if(m)t+=parseInt(m[1],10);
+                  });
+                  if(t===0){
+                    const badge=document.querySelector('a[href="/notifications"] .css-1jxf684');
+                    if(badge&&/\\d+/.test(badge.textContent))t=parseInt(badge.textContent,10);
+                  }
+                  return t;
+                })()`).then(count => {
+                  if (count > 0) badges[url] = '(' + count + ') X'
+                }).catch(() => {})
+                domChecks.push(p)
+              }
+              // Outlook: DOMから未読数を取得
+              if (url.includes('outlook.live.com') || url.includes('outlook.office')) {
+                const p = wc.executeJavaScript(`(function(){
+                  let t=0;
+                  document.querySelectorAll('[aria-label*="未読"],[aria-label*="unread"]').forEach(el=>{
+                    const m=(el.getAttribute('aria-label')||'').match(/(\\d+)/);
+                    if(m)t+=parseInt(m[1],10);
+                  });
+                  if(t===0){
+                    const badge=document.querySelector('.screenReaderOnly');
+                    if(badge){const m=badge.textContent.match(/(\\d+)/);if(m)t=parseInt(m[1],10);}
+                  }
+                  return t;
+                })()`).then(count => {
+                  if (count > 0) badges[url] = '(' + count + ') Outlook'
+                }).catch(() => {})
+                domChecks.push(p)
+              }
+            }
+          }
+        } catch(e) {}
+      })
+      // DOM検査の完了を待ってから送信
+      Promise.all(domChecks).then(() => {
+        try {
+          mainWindow.webContents.send('main-badge-update', badges)
+        } catch(e) {}
+      }).catch(() => {
+        try {
+          mainWindow.webContents.send('main-badge-update', badges)
+        } catch(e) {}
+      })
+    }, 5000)
+  }, 15000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -572,15 +734,9 @@ app.on('ready', () => {
 
 autoUpdater.on('update-available', (info) => {
   console.log('[AutoUpdater] update available:', info.version)
-  const { dialog } = require('electron')
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'アップデート',
-    message: `新しいバージョン v${info.version} が利用可能です。ダウンロードしますか？`,
-    buttons: ['ダウンロード', 'あとで']
-  }).then(result => {
-    if (result.response === 0) autoUpdater.downloadUpdate()
-  })
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-available', { version: info.version })
+  }
 })
 
 autoUpdater.on('update-not-available', () => {
@@ -589,24 +745,50 @@ autoUpdater.on('update-not-available', () => {
 
 autoUpdater.on('download-progress', (progress) => {
   console.log(`[AutoUpdater] download: ${Math.round(progress.percent)}%`)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-download-progress', { percent: Math.round(progress.percent) })
+  }
 })
 
 autoUpdater.on('update-downloaded', () => {
   console.log('[AutoUpdater] download complete')
-  const { dialog } = require('electron')
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'アップデート完了',
-    message: 'アップデートのダウンロードが完了しました。再起動して適用しますか？',
-    buttons: ['再起動', 'あとで']
-  }).then(result => {
-    if (result.response === 0) autoUpdater.quitAndInstall()
-  })
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-downloaded')
+  }
 })
 
 autoUpdater.on('error', (err) => {
   console.log('[AutoUpdater] error:', err.message)
 })
+
+ipcMain.handle('download-update', () => {
+  autoUpdater.downloadUpdate()
+})
+
+ipcMain.handle('quit-and-install', () => {
+  autoUpdater.quitAndInstall()
+})
+
+// --- メインプロセスからのバッジ監視（5秒ごと） ---
+setInterval(() => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const badges = {}
+  console.log('[BadgeMonitor] tracked count:', trackedWebviews.size)
+  trackedWebviews.forEach((wc, id) => {
+    try {
+      if (!wc.isDestroyed()) {
+        const title = wc.getTitle()
+        const url = wc.getURL()
+        if (title && url && url !== 'about:blank') {
+          badges[url] = title
+        }
+      }
+    } catch(e) {}
+  })
+  try {
+    mainWindow.webContents.send('main-badge-update', badges)
+  } catch(e) {}
+}, 5000)
 
 // Dockバッジ（未読合計数）
 ipcMain.on('update-dock-badge', (event, count) => {

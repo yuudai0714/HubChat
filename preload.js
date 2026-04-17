@@ -75,6 +75,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     onCycleService: (callback) =>
       ipcRenderer.on("cycle-service", (event, direction) => callback(direction)),
+  // メインプロセスからのバッジ更新を受信
+  onMainBadgeUpdate: (callback) =>
+    ipcRenderer.on('main-badge-update', (event, badges) => callback(badges)),
+  // アップデート通知
+  onUpdateAvailable: (callback) =>
+    ipcRenderer.on('update-available', (event, info) => callback(info)),
+  onUpdateDownloadProgress: (callback) =>
+    ipcRenderer.on('update-download-progress', (event, info) => callback(info)),
+  onUpdateDownloaded: (callback) =>
+    ipcRenderer.on('update-downloaded', () => callback()),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
   // 実行中のOS（'darwin' = Mac, 'win32' = Windows）
   platform: process.platform,
 })
