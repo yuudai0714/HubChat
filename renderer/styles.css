@@ -822,8 +822,14 @@ webview.active { display: flex; }
 }
 
 
-/* 学習ボタンの絵文字サイズ統一 */
-#learn-btn { font-size: 22px; }
 
 /* NotebookLM アイコン背景を白にして視認性確保 */
+.svc-icon[data-id="notebooklm"] img {
+  background: #fff;
+  border-radius: 6px;
+  padding: 3px;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+}
 

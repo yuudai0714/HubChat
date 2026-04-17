@@ -422,42 +422,49 @@ app.whenReady().then(() => {
             const url = wc.getURL()
             if (title && url && url !== 'about:blank') {
               badges[url] = title
-              // Google Chat: DOMから未読数を取得（キャッシュ付き）
+              // Google Chat: タイトル優先 + DOM aria-label fallback（キャッシュ付き）
               if (url.includes('chat.google.com')) {
-                const p = wc.executeJavaScript(`(function(){
-                  let t=0;
-                  document.querySelectorAll('[aria-label]').forEach(el=>{
-                    const m=(el.getAttribute('aria-label')||'').match(/(\\d+)\\s*件の未読/);
-                    if(m)t+=parseInt(m[1],10);
-                  });
-                  if(t===0){
-                    const unread=document.querySelectorAll('.aIO,.bDi,[data-unread-count]');
-                    unread.forEach(el=>{
-                      const c=parseInt(el.getAttribute('data-unread-count')||el.textContent,10);
-                      if(c>0)t+=c;
-                    });
-                  }
-                  if(t===0){
-                    const bolded=document.querySelectorAll('.IL.ot,.Zc1Bff,.ygtBn');
-                    if(bolded.length>0)t=bolded.length;
-                  }
-                  return t;
-                })()`).then(count => {
+                // まずタイトルから "(N)" パターンを試みる
+                const titleMatch = title.match(/^\((\d+)\)/)
+                if (titleMatch) {
+                  const count = parseInt(titleMatch[1], 10)
                   if (!global._gchatLastCount) global._gchatLastCount = {val:0, zeroStreak:0}
-                  if (count > 0) {
-                    global._gchatLastCount.val = count
-                    global._gchatLastCount.zeroStreak = 0
-                    badges[url] = '[' + count + '] Google Chat'
-                  } else {
-                    global._gchatLastCount.zeroStreak++
-                    if (global._gchatLastCount.zeroStreak < 6 && global._gchatLastCount.val > 0) {
-                      badges[url] = '[' + global._gchatLastCount.val + '] Google Chat'
-                    } else {
-                      global._gchatLastCount.val = 0
+                  global._gchatLastCount.val = count
+                  global._gchatLastCount.zeroStreak = 0
+                  badges[url] = '[' + count + '] Google Chat'
+                } else {
+                  // タイトルにカウントなし → DOM検査
+                  const p = wc.executeJavaScript(`(function(){
+                    let t=0;
+                    document.querySelectorAll('[aria-label]').forEach(el=>{
+                      const lbl=el.getAttribute('aria-label')||'';
+                      const m=lbl.match(/(\\d+)\\s*(件の未読|unread)/i);
+                      if(m)t+=parseInt(m[1],10);
+                    });
+                    if(t===0){
+                      document.querySelectorAll('[data-unread-count]').forEach(el=>{
+                        const c=parseInt(el.getAttribute('data-unread-count'),10);
+                        if(c>0)t+=c;
+                      });
                     }
-                  }
-                }).catch(() => {})
-                domChecks.push(p)
+                    return t;
+                  })()`).then(count => {
+                    if (!global._gchatLastCount) global._gchatLastCount = {val:0, zeroStreak:0}
+                    if (count > 0) {
+                      global._gchatLastCount.val = count
+                      global._gchatLastCount.zeroStreak = 0
+                      badges[url] = '[' + count + '] Google Chat'
+                    } else {
+                      global._gchatLastCount.zeroStreak++
+                      if (global._gchatLastCount.zeroStreak < 6 && global._gchatLastCount.val > 0) {
+                        badges[url] = '[' + global._gchatLastCount.val + '] Google Chat'
+                      } else {
+                        global._gchatLastCount.val = 0
+                      }
+                    }
+                  }).catch(() => {})
+                  domChecks.push(p)
+                }
               }
               // Instagram: DOMから通知検出
               if (url.includes('instagram.com')) {
