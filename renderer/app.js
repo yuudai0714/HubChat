@@ -1547,7 +1547,24 @@ const FREE_PLAN_LIMIT = 3
 
 let licenseStatus = { plan: 'free', key: null, email: null }
 
+// 管理者マシンID（このマシンは常にPro・サーバー認証不要）
+const ADMIN_MACHINE_IDS = ['d7a84f74-acaf-5d07-9bfa-83d1f9768fad']
+
 async function initLicense() {
+  // 管理者マシンチェック（最優先・サーバー不要）
+  try {
+    if (window.electronAPI.getMachineId) {
+      const mid = await window.electronAPI.getMachineId()
+      if (ADMIN_MACHINE_IDS.includes(mid)) {
+        licenseStatus = { plan: "pro", key: "ADMIN", email: "yudai0714@ydk-ai.com" }
+        await window.electronAPI.storeSet("lastKnownPlan", "pro")
+        updateLicenseUI()
+        startPeriodicLicenseCheck()
+        return
+      }
+    }
+  } catch(e) { console.log('[HubChat] admin check error:', e) }
+
   const previousPlan = await window.electronAPI.storeGet('lastKnownPlan', 'free')
   const savedKey = await window.electronAPI.storeGet('licenseKey', null)
   var keyToCheck = savedKey || localStorage.getItem("hc_license_key")
@@ -1636,6 +1653,7 @@ function startPeriodicLicenseCheck() {
   if (_licenseCheckTimer) clearInterval(_licenseCheckTimer)
   _licenseCheckTimer = setInterval(async function() {
     if (licenseStatus.plan !== "pro" || !licenseStatus.key) return
+    if (licenseStatus.key === "ADMIN") return // 管理者は常にPro・スキップ
     try {
       var result = await window.electronAPI.verifyLicense(licenseStatus.key)
       if (!result || result.status !== "active") {
@@ -1967,18 +1985,75 @@ async function showVersionInfo() {
     if (el) el.textContent = 'v' + info.current
 
     const statusEl = document.getElementById('version-status')
-    if (statusEl && info.latest) {
-      if (info.latest === info.current) {
-        statusEl.textContent = '最新バージョンです'
-        statusEl.style.color = '#4CAF50'
-      } else {
-        statusEl.textContent = '最新バージョン v' + info.latest + ' が利用可能です'
-        statusEl.style.color = '#f90'
-      }
-    } else if (statusEl) {
-      statusEl.textContent = 'バージョン確認に失敗しました'
-      statusEl.style.color = '#aaa'
+    if (!info.latest) {
+      if (statusEl) { statusEl.textContent = 'バージョン確認に失敗しました'; statusEl.style.color = '#aaa' }
+      return
     }
+
+    if (info.latest === info.current) {
+      if (statusEl) { statusEl.textContent = '最新バージョンです'; statusEl.style.color = '#4CAF50' }
+      return
+    }
+
+    // 新バージョンあり → 全UI更新
+    if (statusEl) {
+      statusEl.textContent = '最新バージョン v' + info.latest + ' が利用可能です'
+      statusEl.style.color = '#f90'
+    }
+
+    // ① サイドバーのアップデートボタンを表示
+    const updateBtn = document.getElementById('update-btn')
+    if (updateBtn) updateBtn.style.display = ''
+
+    // ② ヘルプモーダル内のダウンロードエリアを表示
+    const updateArea = document.getElementById('version-update-area')
+    if (updateArea) updateArea.style.display = ''
+
+    // ③ トースト通知（起動3秒後）
+    setTimeout(() => {
+      if (document.getElementById('hc-update-toast')) return
+      const platform = window.electronAPI.platform
+      const v = info.latest
+      const dlUrl = platform === 'win32'
+        ? 'https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat%20Setup%20' + v + '.exe'
+        : 'https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-' + v + '-arm64.dmg'
+
+      const toast = document.createElement('div')
+      toast.id = 'hc-update-toast'
+      toast.style.cssText = [
+        'position:fixed',
+        'bottom:24px',
+        'right:24px',
+        'background:#1e1e2e',
+        'border:1px solid #f90',
+        'border-radius:12px',
+        'padding:16px 20px',
+        'z-index:99998',
+        'display:flex',
+        'align-items:center',
+        'gap:14px',
+        'box-shadow:0 4px 20px rgba(0,0,0,0.5)',
+        'max-width:320px',
+        'animation:slideInToast 0.3s ease'
+      ].join(';')
+      toast.innerHTML = `
+        <style>@keyframes slideInToast{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}</style>
+        <div style="font-size:24px;line-height:1;">🔔</div>
+        <div style="flex:1;min-width:0;">
+          <div style="color:#f90;font-weight:700;font-size:13px;margin-bottom:4px;">アップデートあり v${v}</div>
+          <div style="color:#aaa;font-size:12px;line-height:1.4;">新しいバージョンが利用可能です</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <a href="${dlUrl}" style="padding:6px 12px;background:#f90;color:#fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;text-align:center;">ダウンロード</a>
+          <button onclick="this.closest('#hc-update-toast').remove()" style="padding:4px 8px;background:transparent;color:#666;border:none;font-size:11px;cursor:pointer;">後で</button>
+        </div>
+      `
+      document.body.appendChild(toast)
+
+      // 30秒後に自動で消える
+      setTimeout(() => toast.remove(), 30000)
+    }, 3000)
+
   } catch(e) {
     console.log('[HubChat] version check error:', e)
   }

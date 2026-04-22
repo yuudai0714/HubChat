@@ -671,6 +671,9 @@ function getMachineId() {
   }
 }
 
+// マシンID取得（管理者チェック用）
+ipcMain.handle('get-machine-id', () => getMachineId())
+
 // ライセンスアクティベーション（端末紐付け）
 ipcMain.handle('activate-license', async (event, key) => {
   try {

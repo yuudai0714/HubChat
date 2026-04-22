@@ -87,6 +87,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-downloaded', () => callback()),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+  // マシンID取得（管理者チェック用）
+  getMachineId: () => ipcRenderer.invoke('get-machine-id'),
   // 実行中のOS（'darwin' = Mac, 'win32' = Windows）
   platform: process.platform,
 })
