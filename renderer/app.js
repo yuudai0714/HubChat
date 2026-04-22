@@ -63,8 +63,11 @@ let ctxTarget = null  // 右クリック対象のサービスID
 let dragSrc   = null  // ドラッグ中のサービスID
 
 let lastActiveTime = {}  // { id: timestamp } 各サービスの最終アクティブ時刻
-const HIBERNATE_TIMEOUT = 5 * 60 * 1000  // 5分
+const HIBERNATE_TIMEOUT     = 3 * 60 * 1000   // 3分: about:blank退避
+const DEEP_HIBERNATE_TIMEOUT = 15 * 60 * 1000 // 15分: DOMごと破棄
+const BADGE_POLL_INTERVAL   = 3 * 60 * 1000   // 3分ごとにバッジ巡回ポーリング
 let hibernatedServices = new Set()  // ハイバネーション中のサービスID
+let badgePollIndex = 0  // バッジポーリングの現在インデックス
 // ============================================================
 // 3. 起動・初期化
 // ============================================================
@@ -84,26 +87,14 @@ async function init() {
   renderSidebar()
   setupEvents()
 
-  // 起動時：最初のサービスだけ即座に表示、残りはバックグラウンドで順次生成
+  // 起動時：前回使っていたサービス（または最初のサービス）だけロード
+  // 他は完全オンデマンド（クリック時に初めてwebview生成）
   const addedServices = S.serviceOrder.filter(id => S.services[id]?.added && S.services[id]?.enabled)
 
   if (addedServices.length > 0) {
-    // 最初のサービスをすぐ表示（オーバーレイなし）
-    activateService(addedServices[0], false)
-
-    // 残りのwebviewをバックグラウンドで順次生成（バッジ監視用）
-    // ユーザーの操作を邪魔しないよう間隔を空けて1つずつ
-    const remaining = addedServices.slice(1)
-    remaining.forEach((id, i) => {
-      setTimeout(() => {
-        const existing = document.querySelector(`webview[data-id="${id}"]`)
-        if (!existing) {
-          activateService(id, false)
-          // 最初のサービスを表示に戻す（i===0のタイミングで）
-          if (i === 0) activateService(addedServices[0], false)
-        }
-      }, 2000 + i * 300) // 2秒後から300ms間隔で順次生成
-    })
+    const lastActive = await window.electronAPI.storeGet('lastActiveService', null)
+    const initialId = (lastActive && addedServices.includes(lastActive)) ? lastActive : addedServices[0]
+    activateService(initialId, false)
   }
 }
 
@@ -371,6 +362,8 @@ async function activateService(id, scroll = true) {
 
   S.activeId = id
   lastActiveTime[id] = Date.now()
+  // 次回起動時のために最後に使ったサービスを保存
+  try { window.electronAPI.storeSet('lastActiveService', id) } catch(e) {}
 
   // ハイバネーション中なら復帰
   if (hibernatedServices.has(id)) {
@@ -728,14 +721,26 @@ function setupEvents() {
   document.getElementById('add-btn').addEventListener('click', openAddModal)
 
   // ハイバネーション: 60秒ごとに非アクティブサービスをチェック
+  // - 3分経過: about:blank退避（軽量ハイバネーション）
+  // - 15分経過: webview DOMごと破棄（完全破棄）
   setInterval(() => {
     const now = Date.now()
     document.querySelectorAll("webview[data-id]").forEach(wv => {
       const id = wv.dataset.id
       if (id === S.activeId) return
-      if (hibernatedServices.has(id)) return
       const last = lastActiveTime[id] || 0
-      if (last > 0 && (now - last) > HIBERNATE_TIMEOUT) {
+      if (last <= 0) return
+
+      // 深層ハイバネーション: DOMごと破棄
+      if ((now - last) > DEEP_HIBERNATE_TIMEOUT) {
+        console.log("[HubChat] deep hibernating (destroy):", id)
+        wv.remove()
+        hibernatedServices.delete(id)
+        return
+      }
+
+      // 軽量ハイバネーション: about:blank退避
+      if (!hibernatedServices.has(id) && (now - last) > HIBERNATE_TIMEOUT) {
         console.log("[HubChat] hibernating:", id)
         wv.dataset.origSrc = wv.getAttribute("src") || wv.src
         wv.setAttribute("src", "about:blank")
@@ -743,6 +748,47 @@ function setupEvents() {
       }
     })
   }, 60000)
+
+  // バッジポーリング: 3分ごとに1サービスずつバックグラウンドで軽く読み込み
+  // → バッジが更新されたら再度ハイバネ。起動を邪魔しないよう初回は2分後に開始
+  setTimeout(() => {
+    setInterval(() => {
+      const enabled = S.serviceOrder.filter(id => S.services[id]?.added && S.services[id]?.enabled && id !== S.activeId)
+      if (enabled.length === 0) return
+      const id = enabled[badgePollIndex % enabled.length]
+      badgePollIndex++
+      const svc = ALL_SERVICES.find(s => s.id === id)
+      if (!svc) return
+
+      let wv = document.querySelector(`webview[data-id="${id}"]`)
+      if (!wv) {
+        // DOMが無ければ非表示webviewを新規作成してバッジだけ取得
+        wv = document.createElement("webview")
+        wv.dataset.id = id
+        wv.setAttribute("src", S.services[id]?.customUrl || svc.url)
+        const isGoogle = svc.domain && svc.domain.endsWith("google.com")
+        wv.setAttribute("partition", isGoogle ? "persist:google" : `persist:${id}`)
+        wv.setAttribute("allowpopups", "")
+        wv.setAttribute("useragent",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+          "AppleWebKit/537.36 (KHTML, like Gecko) " +
+          "Chrome/137.0.0.0 Safari/537.36")
+        wv.style.display = "none"
+        document.getElementById("webview-container").appendChild(wv)
+        setupBadgeWatcher(wv, id)
+        // バッジ取得後に即ハイバネ対象にするため、lastActiveTimeを過去時刻に
+        lastActiveTime[id] = Date.now() - HIBERNATE_TIMEOUT + 30000 // 30秒後にハイバネ対象
+        console.log("[HubChat] badge-poll (spawn):", id)
+      } else if (hibernatedServices.has(id) && wv.dataset.origSrc) {
+        // ハイバネ中 → 一時復帰してバッジ更新
+        console.log("[HubChat] badge-poll (wake):", id)
+        wv.setAttribute("src", wv.dataset.origSrc)
+        delete wv.dataset.origSrc
+        hibernatedServices.delete(id)
+        lastActiveTime[id] = Date.now() - HIBERNATE_TIMEOUT + 30000
+      }
+    }, BADGE_POLL_INTERVAL)
+  }, 120000) // 起動2分後から開始
   document.getElementById('welcome-add-btn').addEventListener('click', openAddModal)
 
   document.getElementById('settings-btn').addEventListener('click', openSettings)
