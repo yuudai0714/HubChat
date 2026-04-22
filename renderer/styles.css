@@ -823,6 +823,90 @@ webview.active { display: flex; }
 
 
 
+/* ── スキルアップモーダル ── */
+.learn-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--border-color, #333);
+  margin-bottom: 16px;
+}
+.learn-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-hover, #2a2a3e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 20px;
+  padding: 5px 13px;
+  font-size: 12px;
+  color: var(--text-sub, #aaa);
+  cursor: pointer;
+  transition: all .15s;
+}
+.learn-tab:hover { border-color: var(--accent, #f7931e); color: var(--text-main, #fff); }
+.learn-tab.active { background: var(--accent, #f7931e); border-color: var(--accent, #f7931e); color: #fff; }
+.learn-tab-badge {
+  background: rgba(255,255,255,.15);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.learn-tab.active .learn-tab-badge { background: rgba(255,255,255,.25); }
+
+.learn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.learn-card {
+  background: var(--bg-card, #2a2a3e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color .15s, transform .15s;
+}
+.learn-card:hover { border-color: var(--accent, #f7931e); transform: translateY(-1px); }
+.learn-card-cat {
+  font-size: 10px;
+  color: var(--accent, #f7931e);
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: .3px;
+}
+.learn-card-title {
+  margin: 0 0 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main, #fff);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.learn-card-desc {
+  margin: 0 0 9px;
+  font-size: 11px;
+  color: var(--text-sub, #aaa);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.learn-card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.learn-tag {
+  background: rgba(255,255,255,.07);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 10px;
+  color: var(--text-sub, #aaa);
+}
+
 /* NotebookLM アイコン背景を白にして視認性確保 */
 .svc-icon[data-id="notebooklm"] img {
   background: #fff;

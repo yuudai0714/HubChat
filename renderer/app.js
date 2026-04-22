@@ -2029,34 +2029,65 @@ document.getElementById('learn-btn')?.addEventListener('click', async () => {
   try {
     const data = await window.electronAPI.getLearningData();
     if (data.error) throw new Error(data.error);
-    let html = '';
-    for (const cat of data.categories) {
-      html += '<div style="margin-bottom:24px;">';
-      html += '<h3 style="font-size:16px;margin-bottom:12px;">' + cat.icon + ' ' + cat.name + '</h3>';
-      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
-      for (const art of cat.articles) {
-        const tags = (art.tags || []).map(t => '<span style="background:var(--bg-hover,#333);padding:2px 8px;border-radius:4px;font-size:11px;color:var(--text-sub);">' + t + '</span>').join(' ');
-        html += '<div class="learn-card" data-url="' + art.url + '" data-title="' + art.title + '" style="background:var(--bg-card,#2a2a3e);border:1px solid var(--border-color,#333);border-radius:10px;padding:16px;cursor:pointer;transition:border-color 0.2s;">';
-        html += '<h4 style="margin:0 0 8px;font-size:14px;color:var(--text-main,#fff);">' + art.title + '</h4>';
-        html += '<p style="margin:0 0 10px;font-size:12px;color:var(--text-sub,#aaa);line-height:1.5;">' + art.description + '</p>';
-        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + tags + '</div>';
-        html += '</div>';
-      }
-      html += '</div></div>';
-    }
-    if (!html) html = '<p style="color:var(--text-sub);text-align:center;padding:40px 0;">記事がまだありません</p>';
-    content.innerHTML = html;
 
-    content.querySelectorAll('.learn-card').forEach(card => {
-      card.addEventListener('mouseenter', () => card.style.borderColor = '#f7931e');
-      card.addEventListener('mouseleave', () => card.style.borderColor = 'var(--border-color,#333)');
-      card.addEventListener('click', () => {
-        const url = card.dataset.url;
-        if (window.electronAPI && window.electronAPI.openExternal) {
-          window.electronAPI.openExternal(url);
+    // カテゴリタブ + 記事エリアを構築
+    let activeCat = 'all';
+
+    function renderLearn(filterCat) {
+      // タブ
+      let tabHtml = '<div class="learn-tabs">';
+      const allCount = data.categories.reduce((s, c) => s + (c.articles||[]).length, 0);
+      tabHtml += `<button class="learn-tab${filterCat==='all'?' active':''}" data-cat="all">すべて <span class="learn-tab-badge">${allCount}</span></button>`;
+      for (const cat of data.categories) {
+        const cnt = (cat.articles||[]).length;
+        if (!cnt) continue;
+        tabHtml += `<button class="learn-tab${filterCat===cat.id?' active':''}" data-cat="${cat.id}">${cat.icon} ${cat.name} <span class="learn-tab-badge">${cnt}</span></button>`;
+      }
+      tabHtml += '</div>';
+
+      // 記事グリッド
+      let gridHtml = '<div class="learn-grid">';
+      for (const cat of data.categories) {
+        if (filterCat !== 'all' && filterCat !== cat.id) continue;
+        for (const art of (cat.articles||[])) {
+          const tags = (art.tags||[]).map(t =>
+            `<span class="learn-tag">${t}</span>`
+          ).join('');
+          gridHtml += `
+            <div class="learn-card" data-url="${art.url}" data-title="${art.title}">
+              <div class="learn-card-cat">${cat.icon} ${cat.name}</div>
+              <h4 class="learn-card-title">${art.title}</h4>
+              <p class="learn-card-desc">${art.description}</p>
+              ${tags ? `<div class="learn-card-tags">${tags}</div>` : ''}
+            </div>`;
         }
+      }
+      gridHtml += '</div>';
+
+      if (gridHtml === '<div class="learn-grid"></div>') {
+        gridHtml = '<p style="color:var(--text-sub);text-align:center;padding:40px 0;">記事がまだありません</p>';
+      }
+
+      content.innerHTML = tabHtml + gridHtml;
+
+      // タブクリック
+      content.querySelectorAll('.learn-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activeCat = btn.dataset.cat;
+          renderLearn(activeCat);
+        });
       });
-    });
+
+      // カードクリック
+      content.querySelectorAll('.learn-card').forEach(card => {
+        card.addEventListener('click', () => {
+          if (window.electronAPI?.openExternal) window.electronAPI.openExternal(card.dataset.url);
+        });
+      });
+    }
+
+    renderLearn(activeCat);
+
   } catch(e) {
     content.innerHTML = '<p style="color:#ff6b6b;text-align:center;padding:40px 0;">読み込みに失敗しました</p>';
   }
