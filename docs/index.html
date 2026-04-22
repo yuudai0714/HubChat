@@ -1340,7 +1340,7 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
           <li><i class="fas fa-check-circle"></i> ハイバネーション</li>
           <li><i class="fas fa-check-circle"></i> 自動アップデート</li>
         </ul>
-        <a href="#download" class="plan-cta plan-cta-primary" onclick="gtag('event','click',{event_category:'download',event_label:'pricing_pro'});">7日間無料で試す</a>
+        <a href="#" class="plan-cta plan-cta-primary" onclick="event.preventDefault();openTrialModal();gtag('event','click',{event_category:'trial',event_label:'pricing_pro'});">7日間無料で試す</a>
       </div>
     </div>
   </div>
@@ -1528,6 +1528,125 @@ document.querySelectorAll('.faq-q').forEach(btn=>{
 
 // NAV SCROLL STYLE
 window.addEventListener('scroll',()=>{document.getElementById('mainNav').classList.toggle('scrolled',window.scrollY>40);});
+
+// TRIAL MODAL
+const STRIPE_URL = 'https://buy.stripe.com/7sY5kD3rz56ic5G54H9oc05';
+function openTrialModal(){
+  document.getElementById('trialModal').classList.add('open');
+  document.getElementById('trialEmail').focus();
+}
+function closeTrialModal(){
+  document.getElementById('trialModal').classList.remove('open');
+}
+document.getElementById('trialModal').addEventListener('click',function(e){
+  if(e.target===this) closeTrialModal();
+});
+document.getElementById('trialStartBtn').addEventListener('click',function(){
+  const email = document.getElementById('trialEmail').value.trim();
+  const errEl = document.getElementById('trialEmailErr');
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    errEl.style.display='block';
+    document.getElementById('trialEmail').style.borderColor='#f44';
+    return;
+  }
+  errEl.style.display='none';
+  const url = STRIPE_URL + '?prefilled_email=' + encodeURIComponent(email) + '&client_reference_id=' + encodeURIComponent(email);
+  window.open(url, '_blank');
+  // ステップ表示を「決済後の手順」に切り替え
+  document.getElementById('trialStep1').style.display='none';
+  document.getElementById('trialStep2').style.display='';
+});
+document.getElementById('trialDownloadBtn').addEventListener('click',function(){
+  closeTrialModal();
+  setTimeout(()=>{ document.getElementById('download').scrollIntoView({behavior:'smooth'}); },100);
+});
+</script>
+
+<!-- TRIAL MODAL -->
+<div id="trialModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#16213e;border:1px solid #f7931e44;border-radius:16px;max-width:480px;width:100%;padding:36px 32px;position:relative;">
+    <button onclick="closeTrialModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;line-height:1;">✕</button>
+
+    <!-- STEP1: メール入力 -->
+    <div id="trialStep1">
+      <h3 style="color:#f7931e;font-size:20px;font-weight:700;margin-bottom:8px;">7日間無料トライアルを始める</h3>
+      <p style="color:#aaa;font-size:14px;margin-bottom:24px;">クレジットカード登録は必要ですが、7日間は一切請求されません。いつでも解約可能です。</p>
+
+      <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:24px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:28px;height:28px;min-width:28px;background:#f7931e;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">1</div>
+          <div><p style="color:#fff;font-size:14px;font-weight:600;margin-bottom:2px;">メールを入力して決済ページへ</p><p style="color:#aaa;font-size:13px;">StripeでMac・Windowsどちらでも使えるライセンスキーが発行されます</p></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:28px;height:28px;min-width:28px;background:#444;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">2</div>
+          <div><p style="color:#fff;font-size:14px;font-weight:600;margin-bottom:2px;">メールでライセンスキーが届く</p><p style="color:#aaa;font-size:13px;">決済完了後すぐにキーが届きます</p></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:28px;height:28px;min-width:28px;background:#444;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">3</div>
+          <div><p style="color:#fff;font-size:14px;font-weight:600;margin-bottom:2px;">アプリの⭐ボタンからキーを入力</p><p style="color:#aaa;font-size:13px;">サイドバー下部の⭐ボタン → ライセンスキーを貼り付けるだけ</p></div>
+        </div>
+      </div>
+
+      <input id="trialEmail" type="email" placeholder="your@email.com" style="width:100%;padding:12px 14px;background:#0d1b2a;border:1px solid #334;border-radius:8px;color:#fff;font-size:14px;margin-bottom:4px;box-sizing:border-box;outline:none;" />
+      <p id="trialEmailErr" style="display:none;color:#f44;font-size:12px;margin-bottom:8px;">正しいメールアドレスを入力してください</p>
+
+      <button id="trialStartBtn" style="width:100%;padding:14px;background:#f7931e;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;margin-bottom:12px;">7日間無料で試す（Stripeへ）</button>
+
+      <p style="text-align:center;color:#666;font-size:12px;margin-bottom:12px;">または</p>
+      <button id="trialDownloadBtn" style="width:100%;padding:12px;background:transparent;color:#aaa;border:1px solid #444;border-radius:8px;font-size:14px;cursor:pointer;">まずは無料プランをダウンロード</button>
+    </div>
+
+    <!-- STEP2: 決済後の手順 -->
+    <div id="trialStep2" style="display:none;">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:48px;margin-bottom:12px;">🎉</div>
+        <h3 style="color:#f7931e;font-size:20px;font-weight:700;margin-bottom:8px;">あとは3ステップで完了！</h3>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:28px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#0d1b2a;border-radius:10px;padding:14px;">
+          <div style="width:28px;height:28px;min-width:28px;background:#f7931e;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">1</div>
+          <div><p style="color:#fff;font-size:14px;font-weight:600;margin-bottom:2px;">メールを確認する</p><p style="color:#aaa;font-size:13px;">Stripeからライセンスキーが届いています</p></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#0d1b2a;border-radius:10px;padding:14px;">
+          <div style="width:28px;height:28px;min-width:28px;background:#f7931e;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">2</div>
+          <div><p style="color:#fff;font-size:14px;font-weight:600;margin-bottom:2px;">HubChatをダウンロード・インストール</p><p style="color:#aaa;font-size:13px;">下のボタンからお使いのOSに合わせてダウンロード</p></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;background:#0d1b2a;border-radius:10px;padding:14px;">
+          <div style="width:28px;height:28px;min-width:28px;background:#f7931e;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">3</div>
+          <div><p style="color:#fff;font-size:14px;font-weight:600;margin-bottom:2px;">アプリの⭐ボタンを押してキーを入力</p><p style="color:#aaa;font-size:13px;">サイドバー左下の⭐をクリック → ライセンスキーを貼り付け → 認証</p></div>
+        </div>
+      </div>
+      <button onclick="closeTrialModal();setTimeout(()=>document.getElementById('download').scrollIntoView({behavior:'smooth'}),100);" style="width:100%;padding:14px;background:#f7931e;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">ダウンロードページへ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// modal display fix
+document.getElementById('trialModal').style.display='flex';
+document.getElementById('trialModal').style.display='none';
+// open/close on page load
+document.getElementById('trialModal').style.display='';
+// reset to none until opened
+(function(){
+  const m=document.getElementById('trialModal');
+  m.style.display='none';
+  // override open/close to use flex
+  window._origOpenTrialModal = window.openTrialModal;
+  window.openTrialModal = function(){
+    m.style.display='flex';
+    document.getElementById('trialEmail').focus();
+  };
+  window._origCloseTrialModal = window.closeTrialModal;
+  window.closeTrialModal = function(){
+    m.style.display='none';
+    document.getElementById('trialStep1').style.display='';
+    document.getElementById('trialStep2').style.display='none';
+    document.getElementById('trialEmail').value='';
+    document.getElementById('trialEmail').style.borderColor='';
+    document.getElementById('trialEmailErr').style.display='none';
+  };
+})();
 </script>
 </body>
 </html>

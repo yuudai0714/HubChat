@@ -84,55 +84,26 @@ async function init() {
   renderSidebar()
   setupEvents()
 
-  // 起動時：全サービスのwebviewを一括生成（バッジ取得用）
+  // 起動時：最初のサービスだけ即座に表示、残りはバックグラウンドで順次生成
   const addedServices = S.serviceOrder.filter(id => S.services[id]?.added && S.services[id]?.enabled)
 
   if (addedServices.length > 0) {
-    // 最初のサービスを先にアクティブ表示
+    // 最初のサービスをすぐ表示（オーバーレイなし）
     activateService(addedServices[0], false)
 
-    // ローディングオーバーレイを表示
-    const overlay = document.createElement('div')
-    overlay.id = 'startup-loading-overlay'
-    overlay.style.cssText = 'position:fixed;top:0;left:60px;right:0;bottom:0;background:rgba(30,30,46,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;'
-    overlay.innerHTML = `
-      <div style="width:40px;height:40px;border:3px solid rgba(166,227,161,0.3);border-top:3px solid #a6e3a1;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:20px;"></div>
-      <div style="color:#cdd6f4;font-size:15px;font-weight:600;">サービスを読み込んでいます...</div>
-      <div id="startup-loading-count" style="color:#a6adc8;font-size:13px;margin-top:8px;">0 / ${addedServices.length}</div>
-      <style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>
-    `
-    document.body.appendChild(overlay)
-
-    // 残りのサービスをバックグラウンドで一括生成
-    let loadedCount = 1
-    const countEl = () => document.getElementById('startup-loading-count')
-    if (countEl()) countEl().textContent = loadedCount + ' / ' + addedServices.length
-
-    setTimeout(() => {
-      const remaining = addedServices.slice(1)
-      remaining.forEach((id) => {
+    // 残りのwebviewをバックグラウンドで順次生成（バッジ監視用）
+    // ユーザーの操作を邪魔しないよう間隔を空けて1つずつ
+    const remaining = addedServices.slice(1)
+    remaining.forEach((id, i) => {
+      setTimeout(() => {
         const existing = document.querySelector(`webview[data-id="${id}"]`)
         if (!existing) {
-          console.log("[HubChat] preload webview for badge:", id)
           activateService(id, false)
+          // 最初のサービスを表示に戻す（i===0のタイミングで）
+          if (i === 0) activateService(addedServices[0], false)
         }
-        loadedCount++
-        if (countEl()) countEl().textContent = loadedCount + ' / ' + addedServices.length
-      })
-
-      // 最初のサービスに戻して表示
-      activateService(addedServices[0], false)
-
-      // オーバーレイをフェードアウト
-      setTimeout(() => {
-        const ol = document.getElementById('startup-loading-overlay')
-        if (ol) {
-          ol.style.transition = 'opacity 0.5s'
-          ol.style.opacity = '0'
-          setTimeout(() => ol.remove(), 500)
-        }
-      }, 1500)
-    }, 500)
+      }, 2000 + i * 300) // 2秒後から300ms間隔で順次生成
+    })
   }
 }
 
