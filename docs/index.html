@@ -730,7 +730,7 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
     <li><a href="#faq">FAQ</a></li>
   </ul>
   <div class="nav-right">
-    <a href="https://yuudai0714.github.io/HubChat/" target="_blank" rel="noopener noreferrer" class="nav-cta" onclick="gtag('event','click',{event_category:'download',event_label:'nav'});">
+    <a href="#download" class="nav-cta" onclick="gtag('event','click',{event_category:'download',event_label:'nav'});">
       <i class="fas fa-download"></i> 無料ダウンロード
     </a>
     <button class="nav-hamburger" id="navHamburger" aria-label="メニュー">
@@ -747,7 +747,7 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
   <a href="#pricing"><i class="fas fa-tag" style="color:var(--orange);width:18px;"></i>料金</a>
   <a href="#faq"><i class="fas fa-question-circle" style="color:var(--orange);width:18px;"></i>FAQ</a>
   <div class="mobile-divider"></div>
-  <a href="https://yuudai0714.github.io/HubChat/" target="_blank" rel="noopener noreferrer" class="mobile-menu-dl" onclick="gtag('event','click',{event_category:'download',event_label:'mobile_menu'});"><i class="fas fa-download"></i> 無料でダウンロード</a>
+  <a href="#download" class="mobile-menu-dl" onclick="gtag('event','click',{event_category:'download',event_label:'mobile_menu'});"><i class="fas fa-download"></i> 無料でダウンロード</a>
 </div>
 
 <!-- HERO -->
@@ -763,7 +763,7 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
       3サービスまで永久無料。Mac / Windows対応。
     </p>
     <div class="hero-btns">
-      <a href="https://yuudai0714.github.io/HubChat/" target="_blank" rel="noopener noreferrer" class="btn-orange" onclick="gtag('event','click',{event_category:'download',event_label:'hero'});"><i class="fas fa-download"></i> 無料でダウンロード</a>
+      <a href="#download" class="btn-orange" onclick="gtag('event','click',{event_category:'download',event_label:'hero'});"><i class="fas fa-download"></i> 無料でダウンロード</a>
       <a href="#problem" class="btn-ghost"><i class="fas fa-play-circle"></i> 詳しく見る</a>
     </div>
     <p class="hero-note">クレジットカード不要 &nbsp;·&nbsp; いつでも解約可能</p>
@@ -1324,7 +1324,7 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
           <li><i class="fas fa-check-circle"></i> ハイバネーション</li>
           <li><i class="fas fa-check-circle"></i> 自動アップデート</li>
         </ul>
-        <a href="https://yuudai0714.github.io/HubChat/" target="_blank" rel="noopener noreferrer" class="plan-cta plan-cta-secondary" onclick="gtag('event','click',{event_category:'download',event_label:'pricing_free'});">無料でダウンロード</a>
+        <a href="#download" class="plan-cta plan-cta-secondary" onclick="gtag('event','click',{event_category:'download',event_label:'pricing_free'});">無料でダウンロード</a>
       </div>
       <div class="plan featured reveal reveal-delay-2">
         <div class="plan-badge">おすすめ</div>
@@ -1340,7 +1340,7 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
           <li><i class="fas fa-check-circle"></i> ハイバネーション</li>
           <li><i class="fas fa-check-circle"></i> 自動アップデート</li>
         </ul>
-        <a href="https://yuudai0714.github.io/HubChat/" target="_blank" rel="noopener noreferrer" class="plan-cta plan-cta-primary" onclick="gtag('event','click',{event_category:'download',event_label:'pricing_pro'});">7日間無料で試す</a>
+        <a href="#download" class="plan-cta plan-cta-primary" onclick="gtag('event','click',{event_category:'download',event_label:'pricing_pro'});">7日間無料で試す</a>
       </div>
     </div>
   </div>
@@ -1476,7 +1476,7 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
 
 // DOWNLOAD LINKS
 (async function(){
-  try{const r=await fetch('https://api.github.com/repos/yuudai0714/HubChat/releases/latest');const d=await r.json();const v=d.tag_name.replace('v','');const b='https://github.com/yuudai0714/HubChat/releases/latest/download/';document.getElementById('dl-mac-arm').href=b+'HubChat-'+v+'-arm64.dmg';document.getElementById('dl-mac-intel').href=b+'HubChat-'+v+'.dmg';document.getElementById('dl-win').href=b+'HubChat-Setup-'+v+'.exe';}catch(e){}
+  try{const r=await fetch('https://api.github.com/repos/yuudai0714/HubChat/releases/latest');const d=await r.json();const v=d.tag_name.replace('v','');const b='https://github.com/yuudai0714/HubChat/releases/latest/download/';document.getElementById('dl-mac-arm').href=b+'HubChat-'+v+'-arm64.dmg';document.getElementById('dl-mac-intel').href=b+'HubChat-'+v+'.dmg';document.getElementById('dl-win').href=b+'HubChat%20Setup%20'+v+'.exe';}catch(e){}
 })();
 
 // NAV HAMBURGER
