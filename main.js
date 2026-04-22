@@ -409,159 +409,185 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  // --- バッジ監視用キャッシュ（サービスごと） ---
+  // key: url prefix, value: { val, zeroStreak }
+  if (!global._badgeCache) global._badgeCache = {}
+  function badgeCache(key) {
+    if (!global._badgeCache[key]) global._badgeCache[key] = { val: 0, zeroStreak: 0 }
+    return global._badgeCache[key]
+  }
+  function applyCache(key, count, badges, url, label) {
+    const c = badgeCache(key)
+    if (count > 0) {
+      c.val = count; c.zeroStreak = 0
+      badges[url] = '(' + count + ') ' + label
+    } else {
+      c.zeroStreak++
+      // 6回連続ゼロ（30秒）まで前回値を保持してチラつき防止
+      if (c.zeroStreak < 6 && c.val > 0) badges[url] = '(' + c.val + ') ' + label
+      else c.val = 0
+    }
+  }
+
   // --- メインプロセスからのバッジ監視（15秒後に開始、5秒ごと） ---
   setTimeout(() => {
     setInterval(() => {
       if (!mainWindow || mainWindow.isDestroyed()) return
       const badges = {}
       const domChecks = []
-      trackedWebviews.forEach((wc, id) => {
+      trackedWebviews.forEach((wc) => {
         try {
-          if (!wc.isDestroyed()) {
-            const title = wc.getTitle()
-            const url = wc.getURL()
-            if (title && url && url !== 'about:blank') {
-              badges[url] = title
-              // Google Chat: タイトル優先 + DOM aria-label fallback（キャッシュ付き）
-              if (url.includes('chat.google.com')) {
-                // まずタイトルから "(N)" パターンを試みる
-                const titleMatch = title.match(/^\((\d+)\)/)
-                if (titleMatch) {
-                  const count = parseInt(titleMatch[1], 10)
-                  if (!global._gchatLastCount) global._gchatLastCount = {val:0, zeroStreak:0}
-                  global._gchatLastCount.val = count
-                  global._gchatLastCount.zeroStreak = 0
-                  badges[url] = '[' + count + '] Google Chat'
-                } else {
-                  // タイトルにカウントなし → DOM検査
-                  const p = wc.executeJavaScript(`(function(){
-                    let t=0;
-                    document.querySelectorAll('[aria-label]').forEach(el=>{
-                      const lbl=el.getAttribute('aria-label')||'';
-                      const m=lbl.match(/(\\d+)\\s*(件の未読|unread)/i);
-                      if(m)t+=parseInt(m[1],10);
-                    });
-                    if(t===0){
-                      document.querySelectorAll('[data-unread-count]').forEach(el=>{
-                        const c=parseInt(el.getAttribute('data-unread-count'),10);
-                        if(c>0)t+=c;
-                      });
-                    }
-                    return t;
-                  })()`).then(count => {
-                    if (!global._gchatLastCount) global._gchatLastCount = {val:0, zeroStreak:0}
-                    if (count > 0) {
-                      global._gchatLastCount.val = count
-                      global._gchatLastCount.zeroStreak = 0
-                      badges[url] = '[' + count + '] Google Chat'
-                    } else {
-                      global._gchatLastCount.zeroStreak++
-                      if (global._gchatLastCount.zeroStreak < 6 && global._gchatLastCount.val > 0) {
-                        badges[url] = '[' + global._gchatLastCount.val + '] Google Chat'
-                      } else {
-                        global._gchatLastCount.val = 0
-                      }
-                    }
-                  }).catch(() => {})
-                  domChecks.push(p)
-                }
-              }
-              // Instagram: DOMから通知検出
-              if (url.includes('instagram.com')) {
-                const p = wc.executeJavaScript(`(function(){
-                  const dmLink=document.querySelector('a[href="/direct/inbox/"]');
-                  if(dmLink){
-                    const dot=dmLink.querySelector('[aria-label]');
-                    if(dot&&dot.textContent&&/\\d+/.test(dot.textContent))return parseInt(dot.textContent,10);
-                  }
-                  return 0;
-                })()`).then(count => {
-                  if (count > 0) badges[url] = '(' + count + ') Instagram'
-                }).catch(() => {})
-                domChecks.push(p)
-              }
-              // Slack: DOMから未読数を取得
-              if (url.includes('slack.com')) {
-                const p = wc.executeJavaScript(`(function(){
-                  let t=0;
-                  document.querySelectorAll('.p-channel_sidebar__badge').forEach(el=>{
-                    const n=parseInt(el.textContent,10);
-                    if(n>0)t+=n;
-                  });
-                  if(t===0){
-                    const mentions=document.querySelectorAll('[data-qa="channel_sidebar_name_-_mentions_badge"],.c-mention_badge');
-                    mentions.forEach(el=>{const n=parseInt(el.textContent,10);if(n>0)t+=n;});
-                  }
-                  return t;
-                })()`).then(count => {
-                  if (count > 0) badges[url] = '(' + count + ') Slack'
-                }).catch(() => {})
-                domChecks.push(p)
-              }
-              // Messenger: DOMから未読数を取得
-              if (url.includes('messenger.com')) {
-                const p = wc.executeJavaScript(`(function(){
-                  const el=document.querySelector('[aria-label*="unread"],.x1rg5ohu');
-                  if(el){
-                    const m=el.textContent.match(/(\\d+)/);
-                    if(m)return parseInt(m[1],10);
-                    return 1;
-                  }
-                  return 0;
-                })()`).then(count => {
-                  if (count > 0) badges[url] = '(' + count + ') Messenger'
-                }).catch(() => {})
-                domChecks.push(p)
-              }
-              // X (Twitter): DOMから未読数を取得
-              if (url.includes('x.com')) {
-                const p = wc.executeJavaScript(`(function(){
-                  let t=0;
-                  document.querySelectorAll('[aria-label*="unread"],a[href="/notifications"] [aria-live]').forEach(el=>{
-                    const m=(el.getAttribute('aria-label')||el.textContent||'').match(/(\\d+)/);
-                    if(m)t+=parseInt(m[1],10);
-                  });
-                  if(t===0){
-                    const badge=document.querySelector('a[href="/notifications"] .css-1jxf684');
-                    if(badge&&/\\d+/.test(badge.textContent))t=parseInt(badge.textContent,10);
-                  }
-                  return t;
-                })()`).then(count => {
-                  if (count > 0) badges[url] = '(' + count + ') X'
-                }).catch(() => {})
-                domChecks.push(p)
-              }
-              // Outlook: DOMから未読数を取得
-              if (url.includes('outlook.live.com') || url.includes('outlook.office')) {
-                const p = wc.executeJavaScript(`(function(){
-                  let t=0;
-                  document.querySelectorAll('[aria-label*="未読"],[aria-label*="unread"]').forEach(el=>{
-                    const m=(el.getAttribute('aria-label')||'').match(/(\\d+)/);
-                    if(m)t+=parseInt(m[1],10);
-                  });
-                  if(t===0){
-                    const badge=document.querySelector('.screenReaderOnly');
-                    if(badge){const m=badge.textContent.match(/(\\d+)/);if(m)t=parseInt(m[1],10);}
-                  }
-                  return t;
-                })()`).then(count => {
-                  if (count > 0) badges[url] = '(' + count + ') Outlook'
-                }).catch(() => {})
-                domChecks.push(p)
-              }
+          if (wc.isDestroyed()) return
+          const title = wc.getTitle()
+          const url = wc.getURL()
+          if (!title || !url || url === 'about:blank') return
+          badges[url] = title
+
+          // ── ページタイトルから "(N)" を共通抽出 ──
+          const titleNum = (title.match(/^\((\d+)\)/) || title.match(/^(\d+)\s/))
+          const titleCount = titleNum ? parseInt(titleNum[1], 10) : 0
+
+          // Google Chat: タイトル優先 → DOM(aria-label/data-unread-count)
+          if (url.includes('chat.google.com')) {
+            if (titleCount > 0) {
+              applyCache('gchat', titleCount, badges, url, 'Google Chat')
+            } else {
+              const p = wc.executeJavaScript(`(function(){
+                let t=0;
+                document.querySelectorAll('[aria-label]').forEach(el=>{
+                  const m=(el.getAttribute('aria-label')||'').match(/(\\d+)\\s*(件の未読|unread)/i);
+                  if(m)t+=parseInt(m[1],10);
+                });
+                if(!t) document.querySelectorAll('[data-unread-count]').forEach(el=>{
+                  const c=parseInt(el.getAttribute('data-unread-count'),10);
+                  if(c>0)t+=c;
+                });
+                return t;
+              })()`).then(c => applyCache('gchat', c, badges, url, 'Google Chat')).catch(()=>{})
+              domChecks.push(p)
             }
           }
+
+          // Slack: タイトル優先 → DOM(data-qa属性ベース＝安定)
+          if (url.includes('slack.com')) {
+            if (titleCount > 0) {
+              applyCache('slack', titleCount, badges, url, 'Slack')
+            } else {
+              const p = wc.executeJavaScript(`(function(){
+                let t=0;
+                // data-qa属性は比較的安定
+                document.querySelectorAll('[data-qa$="badge"],[data-qa*="unread"]').forEach(el=>{
+                  const n=parseInt(el.textContent,10); if(n>0)t+=n;
+                });
+                if(!t) document.querySelectorAll('[aria-label*="unread"],[aria-label*="未読"]').forEach(el=>{
+                  const m=(el.getAttribute('aria-label')||'').match(/(\\d+)/);
+                  if(m)t+=parseInt(m[1],10);
+                });
+                return t;
+              })()`).then(c => applyCache('slack', c, badges, url, 'Slack')).catch(()=>{})
+              domChecks.push(p)
+            }
+          }
+
+          // Chatwork: タイトルに "(N)" が出る
+          if (url.includes('chatwork.com')) {
+            if (titleCount > 0) applyCache('chatwork', titleCount, badges, url, 'Chatwork')
+            else applyCache('chatwork', 0, badges, url, 'Chatwork')
+          }
+
+          // Gmail: タイトルに "(N)" が出る
+          if (url.includes('mail.google.com')) {
+            if (titleCount > 0) applyCache('gmail', titleCount, badges, url, 'Gmail')
+            else applyCache('gmail', 0, badges, url, 'Gmail')
+          }
+
+          // Messenger: タイトル優先 → aria-label DOM
+          if (url.includes('messenger.com')) {
+            if (titleCount > 0) {
+              applyCache('messenger', titleCount, badges, url, 'Messenger')
+            } else {
+              const p = wc.executeJavaScript(`(function(){
+                let t=0;
+                document.querySelectorAll('[aria-label]').forEach(el=>{
+                  const lbl=el.getAttribute('aria-label')||'';
+                  if(/(unread|未読)/i.test(lbl)){
+                    const m=lbl.match(/(\\d+)/);
+                    if(m){t+=parseInt(m[1],10);}
+                    else t=Math.max(t,1);
+                  }
+                });
+                return t;
+              })()`).then(c => applyCache('messenger', c, badges, url, 'Messenger')).catch(()=>{})
+              domChecks.push(p)
+            }
+          }
+
+          // X (Twitter): タイトル優先 → aria-label DOM (生成クラス名は使わない)
+          if (url.includes('x.com')) {
+            if (titleCount > 0) {
+              applyCache('x', titleCount, badges, url, 'X')
+            } else {
+              const p = wc.executeJavaScript(`(function(){
+                let t=0;
+                document.querySelectorAll('a[href="/notifications"] [aria-label]').forEach(el=>{
+                  const m=(el.getAttribute('aria-label')||'').match(/(\\d+)/);
+                  if(m)t+=parseInt(m[1],10);
+                });
+                if(!t){
+                  // role="status" などariaベース
+                  document.querySelectorAll('[role="status"],[aria-live]').forEach(el=>{
+                    const m=el.textContent.match(/(\\d+)\\s*(件|unread|notification)/i);
+                    if(m)t+=parseInt(m[1],10);
+                  });
+                }
+                return t;
+              })()`).then(c => applyCache('x', c, badges, url, 'X')).catch(()=>{})
+              domChecks.push(p)
+            }
+          }
+
+          // Instagram: タイトル優先 → aria-label DOM
+          if (url.includes('instagram.com')) {
+            if (titleCount > 0) {
+              applyCache('instagram', titleCount, badges, url, 'Instagram')
+            } else {
+              const p = wc.executeJavaScript(`(function(){
+                let t=0;
+                document.querySelectorAll('[aria-label]').forEach(el=>{
+                  const lbl=el.getAttribute('aria-label')||'';
+                  const m=lbl.match(/(\\d+)\\s*(件|unread|notification)/i);
+                  if(m)t+=parseInt(m[1],10);
+                });
+                return t;
+              })()`).then(c => applyCache('instagram', c, badges, url, 'Instagram')).catch(()=>{})
+              domChecks.push(p)
+            }
+          }
+
+          // Outlook: タイトル優先 → aria-label DOM
+          if (url.includes('outlook.live.com') || url.includes('outlook.office')) {
+            if (titleCount > 0) {
+              applyCache('outlook', titleCount, badges, url, 'Outlook')
+            } else {
+              const p = wc.executeJavaScript(`(function(){
+                let t=0;
+                document.querySelectorAll('[aria-label*="未読"],[aria-label*="unread"]').forEach(el=>{
+                  const m=(el.getAttribute('aria-label')||'').match(/(\\d+)/);
+                  if(m)t+=parseInt(m[1],10);
+                });
+                return t;
+              })()`).then(c => applyCache('outlook', c, badges, url, 'Outlook')).catch(()=>{})
+              domChecks.push(p)
+            }
+          }
+
         } catch(e) {}
       })
       // DOM検査の完了を待ってから送信
       Promise.all(domChecks).then(() => {
-        try {
-          mainWindow.webContents.send('main-badge-update', badges)
-        } catch(e) {}
+        try { mainWindow.webContents.send('main-badge-update', badges) } catch(e) {}
       }).catch(() => {
-        try {
-          mainWindow.webContents.send('main-badge-update', badges)
-        } catch(e) {}
+        try { mainWindow.webContents.send('main-badge-update', badges) } catch(e) {}
       })
     }, 5000)
   }, 15000)
