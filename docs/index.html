@@ -1479,6 +1479,22 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
   try{const r=await fetch('https://api.github.com/repos/yuudai0714/HubChat/releases/latest');const d=await r.json();const v=d.tag_name.replace('v','');const b='https://github.com/yuudai0714/HubChat/releases/latest/download/';document.getElementById('dl-mac-arm').href=b+'HubChat-'+v+'-arm64.dmg';document.getElementById('dl-mac-intel').href=b+'HubChat-'+v+'.dmg';document.getElementById('dl-win').href=b+'HubChat%20Setup%20'+v+'.exe';}catch(e){}
 })();
 
+// #download へのアンカーリンクを "確実に" スムーススクロールする
+// （ブラウザのジェスチャー誤認識やクリック連打で別タブで開く事故を防ぐ）
+(function(){
+  document.addEventListener('click', function(e){
+    const a = e.target.closest('a[href="#download"]');
+    if (!a) return;
+    // ⌘/Ctrl/middle click は素直に新規タブで開かせる
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const target = document.getElementById('download');
+    if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+    // URLハッシュは変えない（戻るボタンで意図せず戻らないように）
+  }, true); // capture: true で他のhandlerより先に実行
+})();
+
 // NAV HAMBURGER
 (function(){
   const btn=document.getElementById('navHamburger');
