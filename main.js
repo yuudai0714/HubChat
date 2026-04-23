@@ -387,6 +387,18 @@ function createWindow() {
   })
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'))
+
+  // macOS: 閉じるボタンで終了せず、非表示にしてバックグラウンド常駐
+  // → 次回開く時は起動済みなので一瞬で開く（Slack/Discord方式）
+  // Windows: X = 終了（OSの慣習に従う）
+  if (process.platform === 'darwin') {
+    mainWindow.on('close', (e) => {
+      if (!app.isQuitting) {
+        e.preventDefault()
+        mainWindow.hide()
+      }
+    })
+  }
 }
 
 
@@ -593,11 +605,23 @@ app.whenReady().then(() => {
   }, 15000)
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    // Dockアイコンクリック時：ウィンドウが非表示なら再表示、無ければ作成
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (!mainWindow.isVisible()) mainWindow.show()
+      mainWindow.focus()
+    } else if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
   })
 })
 
+// ⌘Q / メニューからの終了時にフラグを立てる → mainWindow.close が実際に閉じる
+app.on('before-quit', () => {
+  app.isQuitting = true
+})
+
 app.on('window-all-closed', () => {
+  // Windowsはウィンドウ閉じたら終了、macOSは常駐
   if (process.platform !== 'darwin') app.quit()
 })
 
