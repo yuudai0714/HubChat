@@ -756,7 +756,9 @@ ipcMain.handle('verify-license', async (event, key) => {
 ipcMain.handle('get-learning-data', async () => {
   try {
     const { net } = require('electron');
-    const resp = await net.fetch('https://ydk-business.com/hubchat/api/data/learning.json');
+    // キャッシュバスター: nginx・Electronどちらのキャッシュも回避して常に最新を取得
+    const url = 'https://ydk-business.com/hubchat/api/data/learning.json?t=' + Date.now();
+    const resp = await net.fetch(url, { cache: 'no-store' });
     const text = await resp.text();
     return JSON.parse(text);
   } catch(e) {

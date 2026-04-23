@@ -2122,18 +2122,26 @@ document.getElementById('learn-btn')?.addEventListener('click', async () => {
     const data = await window.electronAPI.getLearningData();
     if (data.error) throw new Error(data.error);
 
+    // 既読URL集合をelectron-storeから取得
+    let viewedUrls = await window.electronAPI.storeGet('learnViewedUrls', []);
+    if (!Array.isArray(viewedUrls)) viewedUrls = [];
+    const viewedSet = new Set(viewedUrls);
+
     // カテゴリタブ + 記事エリアを構築
     let activeCat = 'all';
 
     function renderLearn(filterCat) {
-      // タブ
+      // タブ（未読件数も表示）
+      const allArticles = data.categories.flatMap(c => (c.articles||[]).map(a => ({...a, __cat:c})));
+      const allUnread = allArticles.filter(a => !viewedSet.has(a.url)).length;
+
       let tabHtml = '<div class="learn-tabs">';
-      const allCount = data.categories.reduce((s, c) => s + (c.articles||[]).length, 0);
-      tabHtml += `<button class="learn-tab${filterCat==='all'?' active':''}" data-cat="all">すべて <span class="learn-tab-badge">${allCount}</span></button>`;
+      tabHtml += `<button class="learn-tab${filterCat==='all'?' active':''}" data-cat="all">すべて <span class="learn-tab-badge">${allArticles.length}</span>${allUnread ? `<span class="learn-tab-unread">${allUnread}</span>` : ''}</button>`;
       for (const cat of data.categories) {
         const cnt = (cat.articles||[]).length;
         if (!cnt) continue;
-        tabHtml += `<button class="learn-tab${filterCat===cat.id?' active':''}" data-cat="${cat.id}">${cat.icon} ${cat.name} <span class="learn-tab-badge">${cnt}</span></button>`;
+        const unread = (cat.articles||[]).filter(a => !viewedSet.has(a.url)).length;
+        tabHtml += `<button class="learn-tab${filterCat===cat.id?' active':''}" data-cat="${cat.id}">${cat.icon} ${cat.name} <span class="learn-tab-badge">${cnt}</span>${unread ? `<span class="learn-tab-unread">${unread}</span>` : ''}</button>`;
       }
       tabHtml += '</div>';
 
@@ -2142,15 +2150,27 @@ document.getElementById('learn-btn')?.addEventListener('click', async () => {
       for (const cat of data.categories) {
         if (filterCat !== 'all' && filterCat !== cat.id) continue;
         for (const art of (cat.articles||[])) {
-          const tags = (art.tags||[]).map(t =>
-            `<span class="learn-tag">${t}</span>`
-          ).join('');
+          const tags = (art.tags||[]).map(t => `<span class="learn-tag">${t}</span>`).join('');
+          const isUnread = !viewedSet.has(art.url);
+          const thumb = art.thumbnail
+            ? `<div class="learn-card-thumb"><img src="${art.thumbnail}" loading="lazy" alt=""></div>`
+            : '';
+          const likeHtml = (typeof art.likeCount === 'number')
+            ? `<span class="learn-card-likes" title="スキ">❤ ${art.likeCount}</span>`
+            : '';
           gridHtml += `
-            <div class="learn-card" data-url="${art.url}" data-title="${art.title}">
-              <div class="learn-card-cat">${cat.icon} ${cat.name}</div>
-              <h4 class="learn-card-title">${art.title}</h4>
-              <p class="learn-card-desc">${art.description}</p>
-              ${tags ? `<div class="learn-card-tags">${tags}</div>` : ''}
+            <div class="learn-card${isUnread ? ' unread' : ''}" data-url="${art.url}" data-title="${art.title}">
+              ${isUnread ? '<span class="learn-card-unread-dot" title="未読"></span>' : ''}
+              ${thumb}
+              <div class="learn-card-body">
+                <div class="learn-card-cat">${art.__cat?.icon || cat.icon} ${art.__cat?.name || cat.name}</div>
+                <h4 class="learn-card-title">${art.title}</h4>
+                <p class="learn-card-desc">${art.description}</p>
+                <div class="learn-card-meta">
+                  ${tags ? `<div class="learn-card-tags">${tags}</div>` : '<span></span>'}
+                  ${likeHtml}
+                </div>
+              </div>
             </div>`;
         }
       }
@@ -2170,10 +2190,19 @@ document.getElementById('learn-btn')?.addEventListener('click', async () => {
         });
       });
 
-      // カードクリック
+      // カードクリック：開くと既読扱い
       content.querySelectorAll('.learn-card').forEach(card => {
-        card.addEventListener('click', () => {
-          if (window.electronAPI?.openExternal) window.electronAPI.openExternal(card.dataset.url);
+        card.addEventListener('click', async () => {
+          const url = card.dataset.url;
+          if (!viewedSet.has(url)) {
+            viewedSet.add(url);
+            try { await window.electronAPI.storeSet('learnViewedUrls', Array.from(viewedSet)); } catch(e) {}
+            card.classList.remove('unread');
+            card.querySelector('.learn-card-unread-dot')?.remove();
+            // タブの未読数を更新するため再レンダ（タブのみ）
+            renderLearn(activeCat);
+          }
+          if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
         });
       });
     }
