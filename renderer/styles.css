@@ -103,6 +103,73 @@ body {
   transition: border-radius .2s;
 }
 #app-logo:hover { border-radius: 20px; }
+#app-logo { position: relative; }
+.logo-total-badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  min-width: 17px; height: 17px;
+  padding: 0 4px;
+  background: #ff3b30;
+  color: #fff;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg-sidebar, #141210);
+  pointer-events: none;
+}
+
+/* ⌘K クイックスイッチャー */
+#qs-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(3px);
+  z-index: 11000;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+}
+#qs-overlay.show { display: flex; }
+#qs-box {
+  width: 520px; max-width: 90vw;
+  background: var(--bg-card, #25253a);
+  border: 1px solid var(--border-color, #3a3a50);
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.55);
+  overflow: hidden;
+}
+#qs-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color, #3a3a50);
+  color: var(--text-main, #fff);
+  font-size: 15px;
+  outline: none;
+}
+#qs-input::placeholder { color: var(--text-sub, #888); font-size: 13px; }
+#qs-list { max-height: 50vh; overflow-y: auto; padding: 6px; }
+.qs-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.qs-item.sel { background: var(--accent, #f7931e); }
+.qs-item.sel .qs-name { color: #11111b; font-weight: 700; }
+.qs-item img { width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0; }
+.qs-name { font-size: 14px; color: var(--text-main, #fff); flex: 1; }
+.qs-badge {
+  background: #ff3b30; color: #fff;
+  min-width: 18px; padding: 0 5px; height: 18px; line-height: 18px;
+  border-radius: 9px; font-size: 10px; font-weight: 700; text-align: center;
+}
+.qs-item.sel .qs-badge { background: #11111b; color: #fff; }
+.qs-empty { padding: 22px; text-align: center; color: var(--text-sub, #888); font-size: 13px; }
 
 #sidebar-services {
   flex: 1;

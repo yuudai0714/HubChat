@@ -336,6 +336,7 @@ function preloadWebview(id) {
   wv.style.display = "none"
   document.getElementById("webview-container").appendChild(wv)
   setupBadgeWatcher(wv, id)
+  attachCrashRecovery(wv, id)
   console.log("[HubChat] preloaded webview for:", id)
 }
 
@@ -450,6 +451,7 @@ async function activateService(id, scroll = true) {
       document.querySelector(`.loading-wrap[data-for="${id}"]`)?.remove()
     })
     setupBadgeWatcher(wv, id)
+    attachCrashRecovery(wv, id)
 
     wv.addEventListener('did-fail-load', e => {
       if (e.errorCode === -3) return
@@ -776,6 +778,7 @@ function setupEvents() {
         wv.style.display = "none"
         document.getElementById("webview-container").appendChild(wv)
         setupBadgeWatcher(wv, id)
+        attachCrashRecovery(wv, id)
         // バッジ取得後に即ハイバネ対象にするため、lastActiveTimeを過去時刻に
         lastActiveTime[id] = Date.now() - HIBERNATE_TIMEOUT + 30000 // 30秒後にハイバネ対象
         console.log("[HubChat] badge-poll (spawn):", id)
@@ -1085,12 +1088,23 @@ function updateBadge(id, count) {
     iconEl.appendChild(badge)
   }
 
-  // Dock合計バッジ更新
+  // Dock合計バッジ更新 + サイドバーのロゴにも総数表示
   const allBadges = document.querySelectorAll(".svc-icon .badge:not(.dot)")
   let total = 0
   allBadges.forEach(b => { const n = parseInt(b.textContent, 10); if (!isNaN(n)) total += n })
   if (window.electronAPI && window.electronAPI.updateDockBadge) {
     window.electronAPI.updateDockBadge(total)
+  }
+  // ロゴ（左上）に未読総数バッジ
+  const logo = document.getElementById('app-logo')
+  if (logo) {
+    let lb = logo.querySelector('.logo-total-badge')
+    if (total > 0) {
+      if (!lb) { lb = document.createElement('div'); lb.className = 'logo-total-badge'; logo.appendChild(lb) }
+      lb.textContent = total > 99 ? '99+' : total
+    } else if (lb) {
+      lb.remove()
+    }
   }
 }
 
@@ -1108,6 +1122,74 @@ function checkFaviconForNotification(id, favicons) {
       iconEl.appendChild(badge)
     }
   }
+}
+
+// ============================================================
+// クラッシュ自動復帰: webviewのレンダラープロセスが落ちたら自動リロード
+// ============================================================
+const crashRecoveryState = {} // { id: { count, lastTs } }
+function attachCrashRecovery(wv, id) {
+  if (wv.__crashRecoveryAttached) return
+  wv.__crashRecoveryAttached = true
+
+  const recover = (reason) => {
+    const st = crashRecoveryState[id] || { count: 0, lastTs: 0 }
+    const now = Date.now()
+    // 直近に復帰していたらカウント加算、しばらく無事ならリセット
+    if (now - st.lastTs < 60000) st.count++
+    else st.count = 1
+    st.lastTs = now
+    crashRecoveryState[id] = st
+
+    const svc = ALL_SERVICES.find(s => s.id === id)
+    const name = svc ? svc.name : id
+    console.log(`[HubChat] crash recovery (${reason}) for ${id}, attempt ${st.count}`)
+
+    // 短時間に3回以上落ちるならループ回避でエラー表示
+    if (st.count > 3) {
+      const cont = document.getElementById('webview-container')
+      const ld = document.createElement('div')
+      ld.className = 'loading-wrap'
+      ld.dataset.for = id
+      ld.innerHTML = `
+        <div style="text-align:center;color:var(--text-sub)">
+          <div style="font-size:42px;margin-bottom:12px">😵</div>
+          <p style="font-size:16px;font-weight:600;margin-bottom:8px">${name} が繰り返し停止しました</p>
+          <button onclick="reloadWV('${id}')"
+            style="padding:10px 22px;background:var(--accent);color:#11111b;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
+            手動で再読み込み
+          </button>
+        </div>`
+      cont.appendChild(ld)
+      return
+    }
+
+    // 自動リロード（指数バックオフ風に少し待つ）
+    const delay = Math.min(500 * st.count, 2000)
+    setTimeout(() => {
+      try {
+        const url = S.services[id]?.customUrl || svc?.url || wv.getAttribute('src')
+        if (url && url !== 'about:blank') {
+          wv.setAttribute('src', url)
+          if (wv.reloadIgnoringCache) { try { wv.reloadIgnoringCache() } catch(e) {} }
+        }
+      } catch(e) { console.log('[HubChat] recover reload failed:', e) }
+    }, delay)
+  }
+
+  // Electron 28: render-process-gone（crashed/oom/killed等）
+  wv.addEventListener('render-process-gone', (e) => {
+    const r = e.reason || (e.details && e.details.reason) || 'unknown'
+    if (r === 'clean-exit') return // 正常終了は無視
+    recover(r)
+  })
+  // 旧API互換
+  wv.addEventListener('crashed', () => recover('crashed'))
+  // 無応答が続いたら一度リロード
+  wv.addEventListener('unresponsive', () => {
+    console.log('[HubChat] webview unresponsive:', id)
+    if (id === S.activeId) recover('unresponsive')
+  })
 }
 
 function setupBadgeWatcher(wv, id) {
@@ -1748,18 +1830,30 @@ function isOverFreeLimit() {
 
 function showUpgradeDialog() {
   const overlay = document.createElement('div')
-  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;'
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.66);backdrop-filter:blur(3px);z-index:10000;display:flex;align-items:center;justify-content:center;'
   const dialog = document.createElement('div')
-  dialog.style.cssText = 'background:var(--bg-card,#2a2a3e);border-radius:16px;padding:32px;width:420px;max-width:90vw;color:var(--text-main,#fff);text-align:center;'
+  dialog.style.cssText = 'background:var(--bg-card,#2a2a3e);border:1px solid rgba(247,147,30,.35);border-radius:18px;padding:30px 30px 26px;width:440px;max-width:92vw;color:var(--text-main,#fff);box-shadow:0 24px 60px rgba(0,0,0,.5);'
   dialog.innerHTML = `
-    <h3 style="margin:0 0 12px;font-size:18px;">サービス上限に達しました</h3>
-    <p style="margin:0 0 20px;font-size:14px;color:var(--text-sub);line-height:1.7;">フリープランでは${FREE_PLAN_LIMIT}サービスまでご利用いただけます。<br>プロプランにアップグレードすると無制限で利用できます。</p>
-    <button id="upgrade-now-btn" style="width:100%;padding:12px;background:#06C755;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;">プロプランにアップグレード（月額550円）</button>
-    <button id="upgrade-cancel-btn" style="width:100%;padding:10px;background:var(--bg-hover);color:var(--text-sub);border:none;border-radius:8px;font-size:13px;cursor:pointer;">閉じる</button>
+    <div style="text-align:center;font-size:34px;margin-bottom:6px;">⭐️</div>
+    <h3 style="margin:0 0 6px;font-size:19px;font-weight:800;text-align:center;">${FREE_PLAN_LIMIT}サービスの上限に到達しました</h3>
+    <p style="margin:0 0 18px;font-size:13px;color:var(--text-sub);line-height:1.7;text-align:center;">
+      Proにすると<strong style="color:var(--accent,#f7931e);">全サービスを無制限</strong>で追加でき、<br>
+      仕事ツールをこの1画面に完全集約できます。
+    </p>
+    <div style="background:rgba(255,255,255,.04);border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:13px;line-height:1.9;">
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sub);">無制限のサービス追加</span><span style="color:#06C755;font-weight:700;">Pro ✓</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sub);">全SNS・AI・Googleツール対応</span><span style="color:#06C755;font-weight:700;">Pro ✓</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-sub);">今後の新機能もすべて</span><span style="color:#06C755;font-weight:700;">Pro ✓</span></div>
+    </div>
+    <button id="upgrade-now-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#f7931e,#ff6b35);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:10px;box-shadow:0 6px 18px rgba(247,147,30,.35);">Proにアップグレード（月額550円）</button>
+    <button id="upgrade-cancel-btn" style="width:100%;padding:9px;background:transparent;color:var(--text-sub);border:none;font-size:12px;cursor:pointer;">あとで</button>
+    <p style="margin:8px 0 0;font-size:11px;color:var(--text-sub);text-align:center;opacity:.7;">いつでも解約可能 · クレジットカード対応</p>
   `
   overlay.appendChild(dialog)
   document.body.appendChild(overlay)
+  try { if (window.gtag) window.gtag('event','upsell_shown',{event_category:'conversion'}) } catch(e) {}
   dialog.querySelector('#upgrade-now-btn').addEventListener('click', () => {
+    try { if (window.gtag) window.gtag('event','upsell_click',{event_category:'conversion'}) } catch(e) {}
     window.electronAPI.openExternal(HC_PAYMENT_URL)
     document.body.removeChild(overlay)
   })
@@ -1861,6 +1955,100 @@ toggleSvc = async function(id) {
   return _origToggleSvc(id)
 }
 
+
+// ============================================================
+// ⌘K / Ctrl+K クイックスイッチャー: 名前を打って即サービス移動
+// ============================================================
+const QuickSwitcher = (function(){
+  let overlay = null, input = null, list = null, items = [], sel = 0
+
+  function build() {
+    overlay = document.createElement('div')
+    overlay.id = 'qs-overlay'
+    overlay.innerHTML = `
+      <div id="qs-box">
+        <input id="qs-input" type="text" placeholder="サービスを検索…  (↑↓ で選択 · Enter で移動)" autocomplete="off" spellcheck="false">
+        <div id="qs-list"></div>
+      </div>`
+    document.body.appendChild(overlay)
+    input = overlay.querySelector('#qs-input')
+    list = overlay.querySelector('#qs-list')
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) close() })
+    input.addEventListener('input', () => { sel = 0; render() })
+    input.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel+1, items.length-1); render() }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel-1, 0); render() }
+      else if (e.key === 'Enter') { e.preventDefault(); choose(sel) }
+      else if (e.key === 'Escape') { e.preventDefault(); close() }
+    })
+  }
+
+  function currentList(q) {
+    const added = S.serviceOrder.filter(id => S.services[id]?.added && S.services[id]?.enabled)
+    let arr = added.map(id => ALL_SERVICES.find(s => s.id === id)).filter(Boolean)
+    if (q) {
+      const lq = q.toLowerCase()
+      arr = arr.filter(s => s.name.toLowerCase().includes(lq) || s.id.toLowerCase().includes(lq))
+    }
+    return arr
+  }
+
+  function badgeFor(id) {
+    const b = document.querySelector(`.svc-icon[data-id="${id}"] .badge`)
+    if (!b) return ''
+    return `<span class="qs-badge">${b.textContent}</span>`
+  }
+
+  function render() {
+    items = currentList(input.value.trim())
+    if (sel >= items.length) sel = Math.max(0, items.length-1)
+    if (!items.length) { list.innerHTML = '<div class="qs-empty">該当なし</div>'; return }
+    list.innerHTML = items.map((s,i) => `
+      <div class="qs-item${i===sel?' sel':''}" data-i="${i}">
+        <img src="${s.icon || 'https://www.google.com/s2/favicons?domain='+s.domain+'&sz=64'}" onerror="this.style.visibility='hidden'">
+        <span class="qs-name">${s.name}</span>
+        ${badgeFor(s.id)}
+      </div>`).join('')
+    list.querySelectorAll('.qs-item').forEach(el => {
+      el.addEventListener('click', () => choose(parseInt(el.dataset.i,10)))
+      el.addEventListener('mousemove', () => { sel = parseInt(el.dataset.i,10); paintSel() })
+    })
+    paintSel()
+  }
+
+  function paintSel() {
+    list.querySelectorAll('.qs-item').forEach((el,i) => el.classList.toggle('sel', i===sel))
+    const cur = list.querySelector('.qs-item.sel')
+    if (cur) cur.scrollIntoView({ block: 'nearest' })
+  }
+
+  function choose(i) {
+    const s = items[i]
+    if (s) { activateService(s.id); close() }
+  }
+
+  function open() {
+    if (!overlay) build()
+    sel = 0; input.value = ''
+    overlay.classList.add('show')
+    render()
+    setTimeout(() => input.focus(), 0)
+  }
+  function close() { if (overlay) overlay.classList.remove('show') }
+  function isOpen() { return overlay && overlay.classList.contains('show') }
+
+  return { open, close, isOpen }
+})()
+
+document.addEventListener('keydown', (e) => {
+  const isMac = /Mac/.test(navigator.platform)
+  const mod = isMac ? e.metaKey : e.ctrlKey
+  if (mod && !e.shiftKey && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault()
+    QuickSwitcher.isOpen() ? QuickSwitcher.close() : QuickSwitcher.open()
+  }
+})
 
 // ============================================================
 // ============================================================
