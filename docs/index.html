@@ -1482,17 +1482,23 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
 // #download へのアンカーリンクを "確実に" スムーススクロールする
 // （ブラウザのジェスチャー誤認識やクリック連打で別タブで開く事故を防ぐ）
 (function(){
-  document.addEventListener('click', function(e){
+  function handleHashLink(e){
     const a = e.target.closest('a[href="#download"]');
     if (!a) return;
-    // ⌘/Ctrl/middle click は素直に新規タブで開かせる
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    // ページ内アンカーなので、修飾キー・中クリックでも新規タブを開かせない
+    // （同じLPがもう一枚開くだけで無意味なため完全に抑止）
     e.preventDefault();
-    e.stopPropagation();
     const target = document.getElementById('download');
     if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
     // URLハッシュは変えない（戻るボタンで意図せず戻らないように）
-  }, true); // capture: true で他のhandlerより先に実行
+  }
+  // 通常クリックと中クリック(auxclick)の両方を抑止。
+  // stopPropagationは使わない（インラインonclickのgtag計測を止めないため）
+  document.addEventListener('click', handleHashLink);
+  document.addEventListener('auxclick', function(e){
+    const a = e.target.closest('a[href="#download"]');
+    if (a) e.preventDefault();
+  });
 })();
 
 // NAV HAMBURGER
