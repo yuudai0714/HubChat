@@ -47,7 +47,8 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "artifactName": "HubChat-Setup-${version}.${ext}"
     },
     "publish": [
       {
