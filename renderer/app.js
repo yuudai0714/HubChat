@@ -2049,6 +2049,8 @@ document.addEventListener('keydown', (e) => {
     QuickSwitcher.isOpen() ? QuickSwitcher.close() : QuickSwitcher.open()
   }
 })
+// 上部バーの検索ボタン → クイックスイッチャー
+document.getElementById('topbar-search')?.addEventListener('click', () => QuickSwitcher.open())
 
 // ============================================================
 // ============================================================

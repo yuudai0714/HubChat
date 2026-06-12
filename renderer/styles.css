@@ -1,12 +1,66 @@
-/* ウィンドウドラッグ用バー */
-#drag-bar {
+/* 上部バー（常時表示・中央がウィンドウ移動用ドラッグ領域） */
+:root { --topbar-h: 36px; }
+#topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  z-index: 40;
+}
+#topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+#topbar-title {
+  -webkit-app-region: no-drag;
+  font-size: 12px;
+  color: var(--text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+  flex-shrink: 0;
+}
+/* 中央の空き＝ドラッグでウィンドウ移動 */
+#topbar-drag {
+  flex: 1;
+  height: 100%;
   -webkit-app-region: drag;
-  height: 28px;
-  position: fixed;
-  top: 0;
-  left: var(--sidebar-w, 68px);
-  right: 120px;
-  z-index: 9999;
+}
+#topbar-widgets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+.topbar-widget-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-sub);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.topbar-widget-btn:hover { background: var(--bg-active); color: var(--text-main); }
+.topbar-widget-kbd {
+  font-size: 10px;
+  opacity: .7;
+  letter-spacing: .5px;
 }
 
 /* ============================================================
@@ -321,7 +375,7 @@ body {
 
 #welcome-screen {
   position: absolute;
-  inset: 0;
+  inset: var(--topbar-h) 0 0 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -372,7 +426,7 @@ body {
 ============================================================ */
 #webview-container {
   position: absolute;
-  inset: 0;
+  inset: var(--topbar-h) 0 0 0;
 }
 webview {
   position: absolute;
@@ -383,42 +437,8 @@ webview {
 }
 webview.active { display: flex; }
 
-/* ナビゲーション：右上フローティングボタン */
-#nav-trigger {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 120px;
-  height: 8px;
-  z-index: 49;
-}
-
-#nav-toolbar {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px 4px;
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  z-index: 50;
-  opacity: 0;
-  transition: opacity .2s;
-  pointer-events: none;
-  box-shadow: 0 4px 16px rgba(0,0,0,.4);
-}
-#nav-toolbar:hover,
-#nav-toolbar.show {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 #nav-url {
-  display: none;
+  display: inline;
 }
 
 .nav-btn {
