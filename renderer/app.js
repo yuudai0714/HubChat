@@ -381,6 +381,11 @@ async function activateService(id, scroll = true) {
     el.classList.toggle('active', el.dataset.id === id)
   })
 
+  // 他サービスの残留エラー/ローディング表示を除去（被り防止）
+  document.querySelectorAll('#webview-container .loading-wrap').forEach(el => {
+    if (el.dataset.for !== id) el.remove()
+  })
+
   let wv = document.querySelector(`webview[data-id="${id}"]`)
   if (!wv) {
     const loading = document.createElement('div')
@@ -761,6 +766,14 @@ function setupEvents() {
       badgePollIndex++
       const svc = ALL_SERVICES.find(s => s.id === id)
       if (!svc) return
+
+      // 直近に繰り返しクラッシュした不安定なサービスはバックグラウンド再生成しない
+      // （落ちる→再生成→また落ちる、のループとメモリ浪費を防ぐ）
+      const cr = crashRecoveryState[id]
+      if (cr && cr.count > 2 && (Date.now() - cr.lastTs) < 10 * 60 * 1000) {
+        console.log("[HubChat] badge-poll skip unstable:", id)
+        return
+      }
 
       let wv = document.querySelector(`webview[data-id="${id}"]`)
       if (!wv) {
@@ -1143,11 +1156,32 @@ function attachCrashRecovery(wv, id) {
 
     const svc = ALL_SERVICES.find(s => s.id === id)
     const name = svc ? svc.name : id
-    console.log(`[HubChat] crash recovery (${reason}) for ${id}, attempt ${st.count}`)
+    const isActive = (id === S.activeId)
+    const url = S.services[id]?.customUrl || svc?.url
+    console.log(`[HubChat] crash (${reason}) ${id} active=${isActive} attempt=${st.count}`)
 
-    // 短時間に3回以上落ちるならループ回避でエラー表示
+    // --- バックグラウンドのサービスが落ちた場合 ---
+    // エラー画面は絶対に出さない（表示中の別サービスに被るため）。静かに処理。
+    if (!isActive) {
+      if (st.count > 2) {
+        // 繰り返し落ちるなら諦めてwebviewを破棄（バッジ巡回で後ほど再生成される）
+        console.log(`[HubChat] background ${id} unstable, removing quietly`)
+        try { wv.remove() } catch(e) {}
+        return
+      }
+      // 1〜2回なら静かに再読み込みのみ
+      setTimeout(() => {
+        try { if (url && url !== 'about:blank') wv.setAttribute('src', url) } catch(e) {}
+      }, 1000)
+      return
+    }
+
+    // --- アクティブなサービスが落ちた場合 ---
+    // 短時間に3回以上落ちるならループ回避でエラー表示（アクティブ時のみ）
     if (st.count > 3) {
+      // 既存のエラー表示があれば重複させない
       const cont = document.getElementById('webview-container')
+      if (cont.querySelector(`.loading-wrap[data-for="${id}"]`)) return
       const ld = document.createElement('div')
       ld.className = 'loading-wrap'
       ld.dataset.for = id
@@ -1168,9 +1202,9 @@ function attachCrashRecovery(wv, id) {
     const delay = Math.min(500 * st.count, 2000)
     setTimeout(() => {
       try {
-        const url = S.services[id]?.customUrl || svc?.url || wv.getAttribute('src')
-        if (url && url !== 'about:blank') {
-          wv.setAttribute('src', url)
+        const u = url || wv.getAttribute('src')
+        if (u && u !== 'about:blank') {
+          wv.setAttribute('src', u)
           if (wv.reloadIgnoringCache) { try { wv.reloadIgnoringCache() } catch(e) {} }
         }
       } catch(e) { console.log('[HubChat] recover reload failed:', e) }
