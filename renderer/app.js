@@ -2085,6 +2085,10 @@ document.addEventListener('keydown', (e) => {
 })
 // 上部バーの検索ボタン → クイックスイッチャー
 document.getElementById('topbar-search')?.addEventListener('click', () => QuickSwitcher.open())
+// 上部バーの更新ボタン → ワンクリック更新を開始
+document.getElementById('update-btn')?.addEventListener('click', () => {
+  if (window.HubUpdate) window.HubUpdate.start()
+})
 
 // ============================================================
 // ============================================================
@@ -2247,6 +2251,74 @@ init = async function() {
 }
 
 
+// ============================================================
+// ワンクリック自動更新コントローラ（electron-updater連携）
+// 裏でDL → 進捗表示 → 完了後「再起動してインストール」で自動入替
+// ============================================================
+const HubUpdate = (function(){
+  let state = 'idle' // idle | downloading | downloaded
+  let latestVer = null
+  let fallbackUrl = null
+
+  function setToastBody(html) {
+    const t = document.getElementById('hc-update-toast')
+    if (t) { const slot = t.querySelector('#hc-update-actions'); if (slot) slot.innerHTML = html }
+  }
+  function setToastMsg(msg) {
+    const t = document.getElementById('hc-update-toast')
+    if (t) { const m = t.querySelector('#hc-update-msg'); if (m) m.textContent = msg }
+  }
+
+  function start() {
+    if (state === 'downloading') return
+    if (state === 'downloaded') { window.electronAPI.quitAndInstall(); return }
+    state = 'downloading'
+    window.__hubUpdateActive = true
+    setToastMsg('ダウンロード中… 0%')
+    setToastBody('<span style="color:#888;font-size:11px;">少々お待ちください</span>')
+    try {
+      window.electronAPI.downloadUpdate()
+    } catch(e) { onError() }
+    // electron-updaterが10秒以内に反応しなければDMG手動DLにフォールバック
+    setTimeout(() => { if (state === 'downloading' && !progressSeen) onError() }, 10000)
+  }
+
+  let progressSeen = false
+  function onError() {
+    state = 'idle'
+    if (fallbackUrl) {
+      setToastMsg('自動更新に失敗。手動DLします')
+      setToastBody(`<a href="${fallbackUrl}" style="padding:6px 12px;background:#f90;color:#fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;">手動ダウンロード</a>`)
+    } else {
+      setToastMsg('更新に失敗しました')
+    }
+  }
+
+  function init(ver, dlUrl) {
+    latestVer = ver
+    fallbackUrl = dlUrl
+    if (window.__hubUpdateWired) return
+    window.__hubUpdateWired = true
+    if (window.electronAPI.onUpdateDownloadProgress) {
+      window.electronAPI.onUpdateDownloadProgress((p) => {
+        progressSeen = true
+        const pct = (p && typeof p.percent === 'number') ? p.percent : 0
+        setToastMsg(`ダウンロード中… ${pct}%`)
+      })
+    }
+    if (window.electronAPI.onUpdateDownloaded) {
+      window.electronAPI.onUpdateDownloaded(() => {
+        state = 'downloaded'
+        setToastMsg('準備完了。再起動で更新します')
+        setToastBody('<button onclick="HubUpdate.start()" style="padding:6px 12px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">再起動してインストール</button>')
+      })
+    }
+  }
+
+  return { init, start }
+})()
+window.HubUpdate = HubUpdate
+
 // バージョン情報表示
 async function showVersionInfo() {
   try {
@@ -2279,31 +2351,25 @@ async function showVersionInfo() {
     const updateArea = document.getElementById('version-update-area')
     if (updateArea) updateArea.style.display = ''
 
-    // ③ トースト通知（起動3秒後）
+    // ③ トースト通知（起動3秒後）— ワンクリック更新
     setTimeout(() => {
       if (document.getElementById('hc-update-toast')) return
       const platform = window.electronAPI.platform
       const v = info.latest
+      // 自動更新が失敗した時のフォールバック用 手動DLリンク
       const dlUrl = platform === 'win32'
-        ? 'https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat%20Setup%20' + v + '.exe'
+        ? 'https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-Setup-' + v + '.exe'
         : 'https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-' + v + '-arm64.dmg'
+
+      HubUpdate.init(v, dlUrl)
 
       const toast = document.createElement('div')
       toast.id = 'hc-update-toast'
       toast.style.cssText = [
-        'position:fixed',
-        'bottom:24px',
-        'right:24px',
-        'background:#1e1e2e',
-        'border:1px solid #f90',
-        'border-radius:12px',
-        'padding:16px 20px',
-        'z-index:99998',
-        'display:flex',
-        'align-items:center',
-        'gap:14px',
-        'box-shadow:0 4px 20px rgba(0,0,0,0.5)',
-        'max-width:320px',
+        'position:fixed','bottom:24px','right:24px','background:#1e1e2e',
+        'border:1px solid #f90','border-radius:12px','padding:16px 20px',
+        'z-index:99998','display:flex','align-items:center','gap:14px',
+        'box-shadow:0 4px 20px rgba(0,0,0,0.5)','max-width:340px',
         'animation:slideInToast 0.3s ease'
       ].join(';')
       toast.innerHTML = `
@@ -2311,17 +2377,16 @@ async function showVersionInfo() {
         <div style="font-size:24px;line-height:1;">🔔</div>
         <div style="flex:1;min-width:0;">
           <div style="color:#f90;font-weight:700;font-size:13px;margin-bottom:4px;">アップデートあり v${v}</div>
-          <div style="color:#aaa;font-size:12px;line-height:1.4;">新しいバージョンが利用可能です</div>
+          <div id="hc-update-msg" style="color:#aaa;font-size:12px;line-height:1.4;">クリックで更新できます</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <a href="${dlUrl}" style="padding:6px 12px;background:#f90;color:#fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;text-align:center;">ダウンロード</a>
+        <div id="hc-update-actions" style="display:flex;flex-direction:column;gap:6px;">
+          <button onclick="HubUpdate.start()" style="padding:6px 12px;background:#f90;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">今すぐ更新</button>
           <button onclick="this.closest('#hc-update-toast').remove()" style="padding:4px 8px;background:transparent;color:#666;border:none;font-size:11px;cursor:pointer;">後で</button>
         </div>
       `
       document.body.appendChild(toast)
-
-      // 30秒後に自動で消える
-      setTimeout(() => toast.remove(), 30000)
+      // ダウンロード中・完了後は自動で消さない。待機中のみ45秒で自動クローズ
+      setTimeout(() => { const t = document.getElementById('hc-update-toast'); if (t && !window.__hubUpdateActive) t.remove() }, 45000)
     }, 3000)
 
   } catch(e) {
