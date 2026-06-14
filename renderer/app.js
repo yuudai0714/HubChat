@@ -2513,9 +2513,15 @@ const LEARN_RULES = [
   { id:'canva',     icon:'🎨', name:'Canva・デザイン',       test: t => /Canva/.test(t) },
   { id:'hubchat',   icon:'🚀', name:'HubChat活用',          test: t => /HubChat/.test(t) },
 ]
+const LEARN_OTHER = { id:'other', icon:'⚙️', name:'自動化・その他事例' }
 function classifyArticle(title) {
   for (const r of LEARN_RULES) { if (r.test(title || '')) return r }
-  return { id:'other', icon:'⚙️', name:'自動化・その他事例' }
+  return LEARN_OTHER
+}
+// カテゴリID → カテゴリ定義（YDK Officeの上書き用）
+function learnCatById(id) {
+  if (id === 'other') return LEARN_OTHER
+  return LEARN_RULES.find(r => r.id === id) || null
 }
 
 document.getElementById('learn-btn')?.addEventListener('click', async () => {
@@ -2533,10 +2539,16 @@ document.getElementById('learn-btn')?.addEventListener('click', async () => {
     if (!Array.isArray(viewedUrls)) viewedUrls = [];
     const viewedSet = new Set(viewedUrls);
 
-    // 全記事をフラットにし、タイトルから細かいカテゴリを自動判定
-    const allArticles = data.categories.flatMap(c => (c.articles||[])).map(a => ({
-      ...a, __cat: classifyArticle(a.title)
-    }));
+    // YDK Office のカテゴリ上書き/非掲載設定（{url: {cat, hidden}}）
+    const overrides = data.__overrides || {};
+    // 全記事をフラットにし、非掲載を除外、カテゴリは上書き優先→無ければ自動判定
+    const allArticles = data.categories.flatMap(c => (c.articles||[]))
+      .filter(a => !(overrides[a.url] && overrides[a.url].hidden))
+      .map(a => {
+        const ov = overrides[a.url];
+        const cat = (ov && ov.cat && learnCatById(ov.cat)) || classifyArticle(a.title);
+        return { ...a, __cat: cat };
+      });
 
     // 出現したカテゴリを優先順で並べる
     const order = LEARN_RULES.map(r => r.id).concat(['other']);

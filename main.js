@@ -759,8 +759,14 @@ ipcMain.handle('get-learning-data', async () => {
     // キャッシュバスター: nginx・Electronどちらのキャッシュも回避して常に最新を取得
     const url = 'https://ydk-business.com/hubchat/api/data/learning.json?t=' + Date.now();
     const resp = await net.fetch(url, { cache: 'no-store' });
-    const text = await resp.text();
-    return JSON.parse(text);
+    const data = JSON.parse(await resp.text());
+    // YDK Office のカテゴリ上書き/非掲載設定を取得（失敗しても無視）
+    try {
+      const ro = await net.fetch('https://office.ydk-ai.com/api/hubchat/overrides?t=' + Date.now(), { cache: 'no-store' });
+      const oj = JSON.parse(await ro.text());
+      data.__overrides = oj.overrides || {};
+    } catch(e) { data.__overrides = {}; }
+    return data;
   } catch(e) {
     return { error: e.message };
   }
