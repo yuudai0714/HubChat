@@ -895,30 +895,77 @@ webview.active { display: flex; }
   font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 6px;
 }
 .modal-close-btn:hover { background: var(--bg-hover); }
-.help-body { display: flex; flex: 1; overflow: hidden; }
-.help-nav {
-  width: 140px; min-width: 140px; padding: 12px 8px;
-  border-right: 1px solid var(--bg-hover);
-  display: flex; flex-direction: column; gap: 4px; overflow-y: auto;
+.help-body { display: flex; flex-direction: column; flex: 1; overflow: hidden; padding: 16px 20px 4px; }
+
+/* FAQ 検索バー */
+.faq-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-app, #1a1714);
+  border: 1px solid var(--border, #333);
+  border-radius: 10px; padding: 0 12px; margin-bottom: 12px;
+  color: var(--text-sub);
 }
-.help-nav-btn {
-  background: none; border: none; color: var(--text-sub);
-  padding: 10px 12px; border-radius: 8px; text-align: left;
-  font-size: 13px; cursor: pointer; white-space: nowrap;
+.faq-search:focus-within { border-color: var(--accent, #f7931e); }
+.faq-search input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text-main, #fff); font-size: 13px; padding: 11px 0;
 }
-.help-nav-btn:hover { background: var(--bg-hover); }
-.help-nav-btn.active { background: var(--accent); color: #141210; font-weight: 700; }
-.help-content { flex: 1; padding: 20px 28px; overflow-y: auto; min-width: 0; }
-.help-section { display: none; }
-.help-section.active { display: block; }
-.help-section h3 {
-  font-size: 15px; color: var(--text-main); margin: 20px 0 8px;
+.faq-search input::placeholder { color: var(--text-sub, #888); }
+#faq-search-clear { background: none; border: none; color: var(--text-sub); cursor: pointer; font-size: 13px; padding: 4px; }
+
+/* バージョン行 */
+#faq-version {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: var(--text-sub); margin-bottom: 12px; padding: 0 2px;
 }
-.help-section h3:first-child { margin-top: 0; }
-.help-section h4 { font-size: 13px; margin: 14px 0 6px; }
-.help-section p {
-  font-size: 13px; color: var(--text-sub); line-height: 1.8; margin: 0 0 8px;
+#faq-version strong { color: var(--text-main); }
+
+/* カテゴリチップ */
+#faq-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.faq-cat {
+  background: var(--bg-hover, #2a2520); border: 1px solid var(--border, #333);
+  border-radius: 16px; padding: 5px 12px; font-size: 12px;
+  color: var(--text-sub, #aaa); cursor: pointer; white-space: nowrap;
 }
+.faq-cat:hover { border-color: var(--accent, #f7931e); color: var(--text-main); }
+.faq-cat.active { background: var(--accent, #f7931e); border-color: var(--accent); color: #141210; font-weight: 700; }
+
+/* FAQ アコーディオン */
+#faq-list { flex: 1; overflow-y: auto; padding-bottom: 16px; }
+.faq-item { border: 1px solid var(--border, #333); border-radius: 10px; margin-bottom: 8px; overflow: hidden; background: var(--bg-card, #1e1b17); }
+.faq-item.open { border-color: rgba(247,147,30,.4); }
+.faq-q {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  background: none; border: none; cursor: pointer; text-align: left;
+  padding: 13px 14px; color: var(--text-main, #fff); font-size: 13px; font-weight: 600;
+}
+.faq-q-cat {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; color: var(--accent, #f7931e);
+  background: rgba(247,147,30,.12); border-radius: 5px; padding: 2px 7px;
+}
+.faq-q-text { flex: 1; line-height: 1.5; }
+.faq-q-arrow { flex-shrink: 0; color: var(--text-sub); transition: transform .2s; font-size: 14px; }
+.faq-item.open .faq-q-arrow { transform: rotate(180deg); }
+.faq-a {
+  display: none; padding: 0 14px 14px 14px; font-size: 13px;
+  color: var(--text-sub, #aaa); line-height: 1.8;
+}
+.faq-item.open .faq-a { display: block; }
+.faq-a a { color: var(--accent, #f7931e); }
+
+/* スキルアップ検索バー */
+.learn-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-app, #1a1714); border: 1px solid var(--border-color, #333);
+  border-radius: 10px; padding: 0 12px; margin-bottom: 14px; color: var(--text-sub);
+}
+.learn-search:focus-within { border-color: var(--accent, #f7931e); }
+.learn-search input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text-main, #fff); font-size: 13px; padding: 10px 0;
+}
+.learn-search input::placeholder { color: var(--text-sub, #888); }
+#learn-search-clear { background: none; border: none; color: var(--text-sub); cursor: pointer; font-size: 13px; padding: 4px; }
 
 #sidebar-help { padding: 6px 8px 2px; position: relative; z-index: 10; }
 .sidebar-help-btn {

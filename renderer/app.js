@@ -1535,10 +1535,114 @@ document.addEventListener('DOMContentLoaded', () => {
 })
 
 // ============================================================
-// Help / Q&A Modal
+// Help / Q&A Modal （FAQ形式）
 // ============================================================
+const FAQ_DATA = [
+  // --- 基本操作 ---
+  { cat:'基本操作', q:'サービスを追加するには？', a:'左下の <strong>＋</strong> ボタンをクリックし、追加したいサービスを選びます。上部のカテゴリタブで絞り込めます。' },
+  { cat:'基本操作', q:'サービスを切り替えるには？', a:'左サイドバーのアイコンをクリックします。または <strong>⌘K</strong>（Win: Ctrl+K）でクイック検索を開き、名前を打って選ぶと一瞬で移動できます。' },
+  { cat:'基本操作', q:'サービスの並び順を変えたい', a:'サイドバーのアイコンを<strong>ドラッグ＆ドロップ</strong>で好きな順に並び替えられます。' },
+  { cat:'基本操作', q:'サービスを削除・非表示にしたい', a:'サイドバーのアイコンを<strong>右クリック</strong>するとメニューが出ます。「非表示」で隠す、「削除」で完全に除去できます。' },
+  // --- ショートカット ---
+  { cat:'ショートカット', q:'クイック検索を開くには？', a:'<strong>⌘K</strong>（Win: Ctrl+K）。サービス名を打つだけで目的のサービスへ即移動できます。' },
+  { cat:'ショートカット', q:'前後のサービスへ切り替えたい', a:'<strong>⌘Shift+]</strong> で次、<strong>⌘Shift+[</strong> で前（Win: Ctrl+Shift+）。<strong>⌘1〜9</strong> で番号順に直接切り替えもできます。' },
+  { cat:'ショートカット', q:'文字や表示が小さい／大きい（ズーム）', a:'<strong>⌘ +</strong> で拡大、<strong>⌘ -</strong> で縮小、<strong>⌘ 0</strong> でリセット（Win: Ctrl）。ズーム倍率はサービスごとに保存されます。' },
+  // --- 画面・操作 ---
+  { cat:'画面・操作', q:'戻る・進む・更新ボタンはどこ？', a:'画面上部のバー左側に<strong>常時表示</strong>されています（◀ 戻る／▶ 進む／↻ 更新）。' },
+  { cat:'画面・操作', q:'ウィンドウを移動するには？', a:'上部バーの<strong>中央の空いている部分</strong>をドラッグするとウィンドウを動かせます。' },
+  { cat:'画面・操作', q:'テーマ（ダーク／ライト）を変えたい', a:'上部バー右の <strong>⚙（設定）</strong>を開き、「テーマ」でダーク／ライトを切り替えられます。' },
+  // --- ログイン ---
+  { cat:'ログイン', q:'Outlook・Teams にログインできない', a:'HubChat内のMicrosoft認証は<strong>「メールにコードを送信」方式のみ</strong>利用できます。<br>手順：①メールアドレス入力 →②「別の方法でサインインする」→③「○○ にコードを送信」→④届いたコードを入力。<br><span style="color:#f38ba8;">顔/指紋/PIN/パスキー/パスワード入力/アプリ承認は利用不可</span>です。' },
+  { cat:'ログイン', q:'Google でログインできない（Canva等）', a:'Googleのセキュリティにより、デスクトップアプリ内のGoogleログインがブロックされる場合があります（HubChat固有ではなく同種アプリ共通）。<strong>各サービスのメールアドレス＋パスワード方式</strong>でログインしてください。Googleで登録したサービスでも、各サービスの「パスワードをお忘れの場合」からパスワードを設定できます。' },
+  { cat:'ログイン', q:'Canva のログイン方法', a:'ログイン画面で <strong>「別の方法でログイン」→「メールアドレスでログイン」</strong>を選びます。パスワード未設定なら <a href="https://www.canva.com/ja_jp/help/reset-password/" class="faq-ext-link">Canvaのパスワードリセット</a> から設定できます。' },
+  { cat:'ログイン', q:'Slack のワークスペースを追加するには？', a:'Slackを追加するとURL入力欄が出ます。形式は <strong>your-workspace.slack.com</strong>。分からなければブラウザでSlackにログインし、アドレスバーのURLを確認してください。' },
+  // --- トラブル ---
+  { cat:'トラブル', q:'画面が白い・読み込まれない', a:'上部バーの<strong>更新（↻）</strong>を試してください。直らなければ、そのサービスを一度削除して再追加してください。' },
+  { cat:'トラブル', q:'ログインがすぐ切れる', a:'Cookie/セッションの問題で切れることがあります。更新するか、サービスを再追加してください。' },
+  { cat:'トラブル', q:'通知が来ない', a:'各サービス側の通知設定が有効か確認してください。HubChatはサイドバーのアイコンに<strong>バッジ（赤い数字）</strong>で未読を表示します。' },
+  { cat:'トラブル', q:'アプリが固まった／重い', a:'一度 <strong>⌘Q</strong> で完全終了してから開き直してください。使っていないサービスは自動で休止してメモリを節約します。' },
+  // --- 更新 ---
+  { cat:'アップデート', q:'最新版に更新するには？', a:'新バージョンが出ると画面右下に通知が出ます。<strong>「今すぐ更新」</strong>→ダウンロード後 <strong>「再起動してインストール」</strong>で自動更新されます（手動DL不要）。' },
+  // --- 問い合わせ ---
+  { cat:'お問い合わせ', q:'質問・不具合を報告したい', a:'YDK公式LINEからどうぞ。メッセージの最初に「HubChatについて」と書いてお送りください。<br><a href="https://lin.ee/7x6Gosp" class="faq-line-link" style="display:inline-block;margin-top:8px;padding:10px 20px;background:#06C755;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">LINEで問い合わせる</a>' },
+]
+
+function setupFAQ() {
+  if (window.__faqWired) return
+  window.__faqWired = true
+  const input = document.getElementById('faq-search-input')
+  const clearBtn = document.getElementById('faq-search-clear')
+  const catsEl = document.getElementById('faq-cats')
+  const listEl = document.getElementById('faq-list')
+  if (!input || !listEl) return
+
+  const cats = []
+  FAQ_DATA.forEach(f => { if (!cats.includes(f.cat)) cats.push(f.cat) })
+  let activeCat = 'all'
+  let q = ''
+  const openSet = new Set()
+
+  function render() {
+    // カテゴリチップ（検索中は隠す）
+    if (q) {
+      catsEl.style.display = 'none'
+    } else {
+      catsEl.style.display = 'flex'
+      catsEl.innerHTML = `<button class="faq-cat${activeCat==='all'?' active':''}" data-c="all">すべて</button>` +
+        cats.map(c => `<button class="faq-cat${activeCat===c?' active':''}" data-c="${c}">${c}</button>`).join('')
+      catsEl.querySelectorAll('.faq-cat').forEach(b => b.addEventListener('click', () => { activeCat = b.dataset.c; render() }))
+    }
+
+    // フィルタ
+    let items = FAQ_DATA
+    if (q) {
+      const lq = q.toLowerCase()
+      items = items.filter(f => (f.q + ' ' + f.a + ' ' + f.cat).toLowerCase().includes(lq))
+    } else if (activeCat !== 'all') {
+      items = items.filter(f => f.cat === activeCat)
+    }
+
+    if (items.length === 0) {
+      listEl.innerHTML = '<p style="color:var(--text-sub);text-align:center;padding:36px 0;font-size:13px;">該当する項目がありません</p>'
+      return
+    }
+
+    // 検索時は全件オープン表示
+    listEl.innerHTML = items.map((f, i) => {
+      const key = f.cat + '|' + f.q
+      const open = q ? true : openSet.has(key)
+      return `<div class="faq-item${open?' open':''}" data-key="${key.replace(/"/g,'&quot;')}">
+        <button class="faq-q"><span class="faq-q-cat">${f.cat}</span><span class="faq-q-text">${f.q}</span><span class="faq-q-arrow">⌄</span></button>
+        <div class="faq-a">${f.a}</div>
+      </div>`
+    }).join('')
+
+    listEl.querySelectorAll('.faq-item').forEach(item => {
+      item.querySelector('.faq-q').addEventListener('click', () => {
+        const key = item.dataset.key
+        if (item.classList.contains('open')) { item.classList.remove('open'); openSet.delete(key) }
+        else { item.classList.add('open'); openSet.add(key) }
+      })
+    })
+    // 外部リンク
+    listEl.querySelectorAll('.faq-ext-link, .faq-line-link').forEach(a => {
+      a.addEventListener('click', (e) => { e.preventDefault(); if (window.electronAPI?.openExternal) window.electronAPI.openExternal(a.href) })
+    })
+  }
+
+  input.addEventListener('input', () => {
+    q = input.value.trim()
+    clearBtn.style.display = q ? '' : 'none'
+    render()
+  })
+  clearBtn.addEventListener('click', () => { input.value=''; q=''; clearBtn.style.display='none'; input.focus(); render() })
+  render()
+}
+
 function openHelp() {
   document.getElementById('help-modal').classList.remove('hidden')
+  const si = document.getElementById('faq-search-input')
+  if (si) setTimeout(() => si.focus(), 50)
 }
 function closeHelp() {
   document.getElementById('help-modal').classList.add('hidden')
@@ -1674,16 +1778,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === helpModal) closeHelp()
   })
 
-  // Tab navigation
-  document.querySelectorAll('.help-nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.help-nav-btn').forEach(b => b.classList.remove('active'))
-      document.querySelectorAll('.help-section').forEach(s => s.classList.remove('active'))
-      btn.classList.add('active')
-      const section = document.getElementById('help-' + btn.dataset.section)
-      if (section) section.classList.add('active')
-    })
-  })
+  // FAQ（検索＋カテゴリ＋アコーディオン）初期化
+  setupFAQ()
 
   // Escape key
   document.addEventListener('keydown', (e) => {
@@ -2401,6 +2497,27 @@ document.addEventListener('DOMContentLoaded', showVersionInfo)
 // ============================================
 const LEARNING_API = 'https://ydk-business.com/hubchat/api/data/learning.json';
 
+// 記事タイトルから細かいカテゴリを自動判定（サーバーのcategoryに依存しない＝
+// note投稿パイプラインが全部「AI活用」で上書きしても正しく分類される）
+const LEARN_RULES = [
+  { id:'claude',    icon:'🤖', name:'Claude Code',          test: t => /claude\s*code/i.test(t) },
+  { id:'aiorg',     icon:'🏢', name:'AI組織論',             test: t => /AI組織論/.test(t) },
+  { id:'asi',       icon:'🧑‍💼', name:'ASI秘書',            test: t => /ASI秘書/.test(t) },
+  { id:'th-food',   icon:'🍴', name:'飲食店Threads',        test: t => /飲食店.*Threads|Threads.*飲食店/.test(t) },
+  { id:'th-beauty', icon:'💇', name:'美容サロンThreads',     test: t => /美容サロン.*Threads|サロン.*Threads/.test(t) },
+  { id:'th-care',   icon:'🏥', name:'治療院Threads',        test: t => /治療院.*Threads|整体|鍼灸|接骨/.test(t) },
+  { id:'th-school', icon:'🎓', name:'教室Threads',          test: t => /教室.*Threads|スクール|ピアノ|英会話/.test(t) },
+  { id:'th-pro',    icon:'💼', name:'士業・コンサルThreads', test: t => /(士業|コンサル|税理士|社労士|行政書士).*Threads|Threads.*(士業|コンサル)/.test(t) },
+  { id:'threads',   icon:'🧵', name:'その他Threads',        test: t => /Threads/.test(t) },
+  { id:'gmail',     icon:'📧', name:'Google・Gmail',         test: t => /Gmail|Google/.test(t) },
+  { id:'canva',     icon:'🎨', name:'Canva・デザイン',       test: t => /Canva/.test(t) },
+  { id:'hubchat',   icon:'🚀', name:'HubChat活用',          test: t => /HubChat/.test(t) },
+]
+function classifyArticle(title) {
+  for (const r of LEARN_RULES) { if (r.test(title || '')) return r }
+  return { id:'other', icon:'⚙️', name:'自動化・その他事例' }
+}
+
 document.getElementById('learn-btn')?.addEventListener('click', async () => {
   const modal = document.getElementById('learn-modal');
   const content = document.getElementById('learn-content');
@@ -2416,87 +2533,112 @@ document.getElementById('learn-btn')?.addEventListener('click', async () => {
     if (!Array.isArray(viewedUrls)) viewedUrls = [];
     const viewedSet = new Set(viewedUrls);
 
-    // カテゴリタブ + 記事エリアを構築
+    // 全記事をフラットにし、タイトルから細かいカテゴリを自動判定
+    const allArticles = data.categories.flatMap(c => (c.articles||[])).map(a => ({
+      ...a, __cat: classifyArticle(a.title)
+    }));
+
+    // 出現したカテゴリを優先順で並べる
+    const order = LEARN_RULES.map(r => r.id).concat(['other']);
+    const catMap = new Map();
+    for (const a of allArticles) {
+      if (!catMap.has(a.__cat.id)) catMap.set(a.__cat.id, { meta: a.__cat, items: [] });
+      catMap.get(a.__cat.id).items.push(a);
+    }
+    const groups = order.filter(id => catMap.has(id)).map(id => catMap.get(id));
+
     let activeCat = 'all';
+    let searchQ = '';
 
-    function renderLearn(filterCat) {
-      // タブ（未読件数も表示）
-      const allArticles = data.categories.flatMap(c => (c.articles||[]).map(a => ({...a, __cat:c})));
-      const allUnread = allArticles.filter(a => !viewedSet.has(a.url)).length;
-
-      let tabHtml = '<div class="learn-tabs">';
-      tabHtml += `<button class="learn-tab${filterCat==='all'?' active':''}" data-cat="all">すべて <span class="learn-tab-badge">${allArticles.length}</span>${allUnread ? `<span class="learn-tab-unread">${allUnread}</span>` : ''}</button>`;
-      for (const cat of data.categories) {
-        const cnt = (cat.articles||[]).length;
-        if (!cnt) continue;
-        const unread = (cat.articles||[]).filter(a => !viewedSet.has(a.url)).length;
-        tabHtml += `<button class="learn-tab${filterCat===cat.id?' active':''}" data-cat="${cat.id}">${cat.icon} ${cat.name} <span class="learn-tab-badge">${cnt}</span>${unread ? `<span class="learn-tab-unread">${unread}</span>` : ''}</button>`;
+    function visibleArticles() {
+      let arr = activeCat === 'all' ? allArticles : (catMap.get(activeCat)?.items || []);
+      if (searchQ) {
+        const q = searchQ.toLowerCase();
+        arr = arr.filter(a => (a.title||'').toLowerCase().includes(q) || (a.description||'').toLowerCase().includes(q));
       }
-      tabHtml += '</div>';
+      return arr;
+    }
+
+    function renderLearn() {
+      // 検索バー
+      let html = `
+        <div class="learn-search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="learn-search-input" type="text" placeholder="記事を検索…" value="${searchQ.replace(/"/g,'&quot;')}" autocomplete="off">
+          ${searchQ ? '<button id="learn-search-clear" title="クリア">✕</button>' : ''}
+        </div>`;
+
+      // タブ（検索中は隠す）
+      if (!searchQ) {
+        const allUnread = allArticles.filter(a => !viewedSet.has(a.url)).length;
+        html += '<div class="learn-tabs">';
+        html += `<button class="learn-tab${activeCat==='all'?' active':''}" data-cat="all">すべて <span class="learn-tab-badge">${allArticles.length}</span>${allUnread ? `<span class="learn-tab-unread">${allUnread}</span>` : ''}</button>`;
+        for (const g of groups) {
+          const unread = g.items.filter(a => !viewedSet.has(a.url)).length;
+          html += `<button class="learn-tab${activeCat===g.meta.id?' active':''}" data-cat="${g.meta.id}">${g.meta.icon} ${g.meta.name} <span class="learn-tab-badge">${g.items.length}</span>${unread ? `<span class="learn-tab-unread">${unread}</span>` : ''}</button>`;
+        }
+        html += '</div>';
+      }
 
       // 記事グリッド
-      let gridHtml = '<div class="learn-grid">';
-      for (const cat of data.categories) {
-        if (filterCat !== 'all' && filterCat !== cat.id) continue;
-        for (const art of (cat.articles||[])) {
-          const tags = (art.tags||[]).map(t => `<span class="learn-tag">${t}</span>`).join('');
+      const list = visibleArticles();
+      if (list.length === 0) {
+        html += '<p style="color:var(--text-sub);text-align:center;padding:40px 0;">該当する記事がありません</p>';
+      } else {
+        html += '<div class="learn-grid">';
+        for (const art of list) {
           const isUnread = !viewedSet.has(art.url);
-          const thumb = art.thumbnail
-            ? `<div class="learn-card-thumb"><img src="${art.thumbnail}" loading="lazy" alt=""></div>`
-            : '';
-          const likeHtml = (typeof art.likeCount === 'number')
-            ? `<span class="learn-card-likes" title="スキ">❤ ${art.likeCount}</span>`
-            : '';
-          gridHtml += `
-            <div class="learn-card${isUnread ? ' unread' : ''}" data-url="${art.url}" data-title="${art.title}">
+          const thumb = art.thumbnail ? `<div class="learn-card-thumb"><img src="${art.thumbnail}" loading="lazy" alt=""></div>` : '';
+          const likeHtml = (typeof art.likeCount === 'number' && art.likeCount > 0) ? `<span class="learn-card-likes" title="スキ">❤ ${art.likeCount}</span>` : '';
+          html += `
+            <div class="learn-card${isUnread ? ' unread' : ''}" data-url="${art.url}" data-title="${(art.title||'').replace(/"/g,'&quot;')}">
               ${isUnread ? '<span class="learn-card-unread-dot" title="未読"></span>' : ''}
               ${thumb}
               <div class="learn-card-body">
-                <div class="learn-card-cat">${art.__cat?.icon || cat.icon} ${art.__cat?.name || cat.name}</div>
+                <div class="learn-card-cat">${art.__cat.icon} ${art.__cat.name}</div>
                 <h4 class="learn-card-title">${art.title}</h4>
-                <p class="learn-card-desc">${art.description}</p>
-                <div class="learn-card-meta">
-                  ${tags ? `<div class="learn-card-tags">${tags}</div>` : '<span></span>'}
-                  ${likeHtml}
-                </div>
+                <p class="learn-card-desc">${art.description||''}</p>
+                <div class="learn-card-meta"><span></span>${likeHtml}</div>
               </div>
             </div>`;
         }
-      }
-      gridHtml += '</div>';
-
-      if (gridHtml === '<div class="learn-grid"></div>') {
-        gridHtml = '<p style="color:var(--text-sub);text-align:center;padding:40px 0;">記事がまだありません</p>';
+        html += '</div>';
       }
 
-      content.innerHTML = tabHtml + gridHtml;
+      content.innerHTML = html;
 
-      // タブクリック
-      content.querySelectorAll('.learn-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-          activeCat = btn.dataset.cat;
-          renderLearn(activeCat);
+      // 検索入力（フォーカス維持のためカーソル位置を復元）
+      const si = content.querySelector('#learn-search-input');
+      if (si) {
+        si.addEventListener('input', () => {
+          const pos = si.selectionStart;
+          searchQ = si.value.trim();
+          renderLearn();
+          const ni = content.querySelector('#learn-search-input');
+          if (ni) { ni.focus(); try { ni.setSelectionRange(pos, pos); } catch(e) {} }
         });
+      }
+      content.querySelector('#learn-search-clear')?.addEventListener('click', () => { searchQ = ''; renderLearn(); content.querySelector('#learn-search-input')?.focus(); });
+
+      content.querySelectorAll('.learn-tab').forEach(btn => {
+        btn.addEventListener('click', () => { activeCat = btn.dataset.cat; renderLearn(); });
       });
 
-      // カードクリック：開くと既読扱い
       content.querySelectorAll('.learn-card').forEach(card => {
         card.addEventListener('click', async () => {
           const url = card.dataset.url;
           if (!viewedSet.has(url)) {
             viewedSet.add(url);
             try { await window.electronAPI.storeSet('learnViewedUrls', Array.from(viewedSet)); } catch(e) {}
-            card.classList.remove('unread');
-            card.querySelector('.learn-card-unread-dot')?.remove();
-            // タブの未読数を更新するため再レンダ（タブのみ）
-            renderLearn(activeCat);
           }
           if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
+          card.classList.remove('unread');
+          card.querySelector('.learn-card-unread-dot')?.remove();
         });
       });
     }
 
-    renderLearn(activeCat);
+    renderLearn();
 
   } catch(e) {
     content.innerHTML = '<p style="color:#ff6b6b;text-align:center;padding:40px 0;">読み込みに失敗しました</p>';
