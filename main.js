@@ -792,19 +792,28 @@ ipcMain.handle('open-external', (event, url) => {
 // ============================================
 // 自動アップデート（electron-updater）
 // ============================================
+autoUpdater.autoDownload = false
+autoUpdater.autoInstallOnAppQuit = true
+
+function sendToRenderer(channel, payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, payload)
+  }
+}
+
 app.on('ready', () => {
+  // 起動5秒後に初回チェック、その後30分ごとに再チェック（起動しっぱなしでも検知）
   setTimeout(() => {
-    autoUpdater.logger = require('electron').app.getPath ? console : console
-    autoUpdater.autoDownload = false
     autoUpdater.checkForUpdates().catch(err => console.log('[AutoUpdater] check error:', err))
+    setInterval(() => {
+      autoUpdater.checkForUpdates().catch(err => console.log('[AutoUpdater] periodic check error:', err))
+    }, 30 * 60 * 1000)
   }, 5000)
 })
 
 autoUpdater.on('update-available', (info) => {
   console.log('[AutoUpdater] update available:', info.version)
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('update-available', { version: info.version })
-  }
+  sendToRenderer('update-available', { version: info.version })
 })
 
 autoUpdater.on('update-not-available', () => {
@@ -813,24 +822,41 @@ autoUpdater.on('update-not-available', () => {
 
 autoUpdater.on('download-progress', (progress) => {
   console.log(`[AutoUpdater] download: ${Math.round(progress.percent)}%`)
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('update-download-progress', { percent: Math.round(progress.percent) })
-  }
+  sendToRenderer('update-download-progress', { percent: Math.round(progress.percent) })
 })
 
 autoUpdater.on('update-downloaded', () => {
   console.log('[AutoUpdater] download complete')
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('update-downloaded')
-  }
+  sendToRenderer('update-downloaded')
 })
 
 autoUpdater.on('error', (err) => {
-  console.log('[AutoUpdater] error:', err.message)
+  console.log('[AutoUpdater] error:', err && err.message)
+  sendToRenderer('update-error', { message: err && err.message ? err.message : String(err) })
 })
 
-ipcMain.handle('download-update', () => {
-  autoUpdater.downloadUpdate()
+// 手動チェック（レンダラーから随時呼べる）
+ipcMain.handle('check-for-update', async () => {
+  try {
+    const r = await autoUpdater.checkForUpdates()
+    return { ok: true, version: r && r.updateInfo ? r.updateInfo.version : null }
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : String(e) }
+  }
+})
+
+// ダウンロード：先に最新チェックして updateInfo を確実に持ってから download
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.checkForUpdates()
+    await autoUpdater.downloadUpdate()
+    return { ok: true }
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e)
+    console.log('[AutoUpdater] download-update error:', msg)
+    sendToRenderer('update-error', { message: msg })
+    return { ok: false, error: msg }
+  }
 })
 
 ipcMain.handle('quit-and-install', () => {

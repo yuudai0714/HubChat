@@ -1580,7 +1580,7 @@ function setupFAQ() {
   FAQ_DATA.forEach(f => { if (!cats.includes(f.cat)) cats.push(f.cat) })
   let activeCat = 'all'
   let q = ''
-  const openSet = new Set()
+  const collapsedSet = new Set() // 既定は全展開。閉じたものだけ記録
 
   function render() {
     // カテゴリチップ（検索中は隠す）
@@ -1607,10 +1607,10 @@ function setupFAQ() {
       return
     }
 
-    // 検索時は全件オープン表示
-    listEl.innerHTML = items.map((f, i) => {
+    // 既定は全件展開（検索時も展開）。ユーザーが閉じたものだけ畳む
+    listEl.innerHTML = items.map((f) => {
       const key = f.cat + '|' + f.q
-      const open = q ? true : openSet.has(key)
+      const open = q ? true : !collapsedSet.has(key)
       return `<div class="faq-item${open?' open':''}" data-key="${key.replace(/"/g,'&quot;')}">
         <button class="faq-q"><span class="faq-q-cat">${f.cat}</span><span class="faq-q-text">${f.q}</span><span class="faq-q-arrow">⌄</span></button>
         <div class="faq-a">${f.a}</div>
@@ -1620,8 +1620,8 @@ function setupFAQ() {
     listEl.querySelectorAll('.faq-item').forEach(item => {
       item.querySelector('.faq-q').addEventListener('click', () => {
         const key = item.dataset.key
-        if (item.classList.contains('open')) { item.classList.remove('open'); openSet.delete(key) }
-        else { item.classList.add('open'); openSet.add(key) }
+        if (item.classList.contains('open')) { item.classList.remove('open'); collapsedSet.add(key) }
+        else { item.classList.add('open'); collapsedSet.delete(key) }
       })
     })
     // 外部リンク
@@ -2353,7 +2353,6 @@ init = async function() {
 // ============================================================
 const HubUpdate = (function(){
   let state = 'idle' // idle | downloading | downloaded
-  let latestVer = null
   let fallbackUrl = null
 
   function setToastBody(html) {
@@ -2365,55 +2364,91 @@ const HubUpdate = (function(){
     if (t) { const m = t.querySelector('#hc-update-msg'); if (m) m.textContent = msg }
   }
 
-  function start() {
+  async function start() {
     if (state === 'downloading') return
     if (state === 'downloaded') { window.electronAPI.quitAndInstall(); return }
     state = 'downloading'
     window.__hubUpdateActive = true
-    setToastMsg('ダウンロード中… 0%')
+    setToastMsg('ダウンロード開始…')
     setToastBody('<span style="color:#888;font-size:11px;">少々お待ちください</span>')
     try {
-      window.electronAPI.downloadUpdate()
-    } catch(e) { onError() }
-    // electron-updaterが10秒以内に反応しなければDMG手動DLにフォールバック
-    setTimeout(() => { if (state === 'downloading' && !progressSeen) onError() }, 10000)
+      // main側で「最新チェック→DL」をまとめて実行。失敗時は {ok:false} か update-error が返る
+      const r = await window.electronAPI.downloadUpdate()
+      if (r && r.ok === false) onError(r.error)
+    } catch(e) { onError(String(e)) }
   }
 
-  let progressSeen = false
-  function onError() {
+  function onError(detail) {
+    if (state === 'downloaded') return // 既に完了していれば無視
     state = 'idle'
+    console.log('[HubChat] update error:', detail)
     if (fallbackUrl) {
       setToastMsg('自動更新に失敗。手動DLします')
-      setToastBody(`<a href="${fallbackUrl}" style="padding:6px 12px;background:#f90;color:#fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;">手動ダウンロード</a>`)
+      setToastBody(`<a href="${fallbackUrl}" target="_blank" rel="noopener" style="padding:6px 12px;background:#f90;color:#fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;">手動ダウンロード</a>`)
     } else {
       setToastMsg('更新に失敗しました')
     }
   }
 
   function init(ver, dlUrl) {
-    latestVer = ver
     fallbackUrl = dlUrl
     if (window.__hubUpdateWired) return
     window.__hubUpdateWired = true
-    if (window.electronAPI.onUpdateDownloadProgress) {
-      window.electronAPI.onUpdateDownloadProgress((p) => {
-        progressSeen = true
-        const pct = (p && typeof p.percent === 'number') ? p.percent : 0
-        setToastMsg(`ダウンロード中… ${pct}%`)
-      })
-    }
-    if (window.electronAPI.onUpdateDownloaded) {
-      window.electronAPI.onUpdateDownloaded(() => {
-        state = 'downloaded'
-        setToastMsg('準備完了。再起動で更新します')
-        setToastBody('<button onclick="HubUpdate.start()" style="padding:6px 12px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">再起動してインストール</button>')
-      })
-    }
+    window.electronAPI.onUpdateDownloadProgress?.((p) => {
+      const pct = (p && typeof p.percent === 'number') ? p.percent : 0
+      setToastMsg(`ダウンロード中… ${pct}%`)
+    })
+    window.electronAPI.onUpdateDownloaded?.(() => {
+      state = 'downloaded'
+      setToastMsg('準備完了。クリックで再起動して更新します')
+      setToastBody('<button onclick="HubUpdate.start()" style="padding:7px 14px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">再起動してインストール</button>')
+    })
+    window.electronAPI.onUpdateError?.((info) => onError(info && info.message))
   }
 
   return { init, start }
 })()
 window.HubUpdate = HubUpdate
+
+// アップデート用トースト（GitHub API検知・electron-updater検知の両方から呼ぶ。重複は無視）
+function showUpdateToast(v) {
+  if (!v) return
+  if (document.getElementById('hc-update-toast')) return
+  const updateBtn = document.getElementById('update-btn')
+  if (updateBtn) updateBtn.style.display = ''
+  const platform = window.electronAPI.platform
+  const dlUrl = platform === 'win32'
+    ? 'https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-Setup-' + v + '.exe'
+    : 'https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-' + v + '-arm64.dmg'
+  HubUpdate.init(v, dlUrl)
+
+  const toast = document.createElement('div')
+  toast.id = 'hc-update-toast'
+  toast.style.cssText = [
+    'position:fixed','bottom:24px','right:24px','background:#1e1e2e',
+    'border:1px solid #f90','border-radius:12px','padding:16px 20px',
+    'z-index:99998','display:flex','align-items:center','gap:14px',
+    'box-shadow:0 4px 20px rgba(0,0,0,0.5)','max-width:340px',
+    'animation:slideInToast 0.3s ease'
+  ].join(';')
+  toast.innerHTML = `
+    <style>@keyframes slideInToast{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}</style>
+    <div style="font-size:24px;line-height:1;">🔔</div>
+    <div style="flex:1;min-width:0;">
+      <div style="color:#f90;font-weight:700;font-size:13px;margin-bottom:4px;">アップデートあり v${v}</div>
+      <div id="hc-update-msg" style="color:#aaa;font-size:12px;line-height:1.4;">クリックで自動更新します</div>
+    </div>
+    <div id="hc-update-actions" style="display:flex;flex-direction:column;gap:6px;">
+      <button onclick="HubUpdate.start()" style="padding:6px 12px;background:#f90;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">今すぐ更新</button>
+      <button onclick="this.closest('#hc-update-toast').remove()" style="padding:4px 8px;background:transparent;color:#666;border:none;font-size:11px;cursor:pointer;">後で</button>
+    </div>`
+  document.body.appendChild(toast)
+}
+
+// electron-updaterが更新を検知したら（起動中の定期チェック含む）トースト表示
+window.electronAPI.onUpdateAvailable?.((info) => {
+  showUpdateToast(info && info.version)
+})
 
 // バージョン情報表示
 async function showVersionInfo() {
@@ -2447,49 +2482,16 @@ async function showVersionInfo() {
     const updateArea = document.getElementById('version-update-area')
     if (updateArea) updateArea.style.display = ''
 
-    // ③ トースト通知（起動3秒後）— ワンクリック更新
-    setTimeout(() => {
-      if (document.getElementById('hc-update-toast')) return
-      const platform = window.electronAPI.platform
-      const v = info.latest
-      // 自動更新が失敗した時のフォールバック用 手動DLリンク
-      const dlUrl = platform === 'win32'
-        ? 'https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-Setup-' + v + '.exe'
-        : 'https://github.com/yuudai0714/HubChat/releases/latest/download/HubChat-' + v + '-arm64.dmg'
-
-      HubUpdate.init(v, dlUrl)
-
-      const toast = document.createElement('div')
-      toast.id = 'hc-update-toast'
-      toast.style.cssText = [
-        'position:fixed','bottom:24px','right:24px','background:#1e1e2e',
-        'border:1px solid #f90','border-radius:12px','padding:16px 20px',
-        'z-index:99998','display:flex','align-items:center','gap:14px',
-        'box-shadow:0 4px 20px rgba(0,0,0,0.5)','max-width:340px',
-        'animation:slideInToast 0.3s ease'
-      ].join(';')
-      toast.innerHTML = `
-        <style>@keyframes slideInToast{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}</style>
-        <div style="font-size:24px;line-height:1;">🔔</div>
-        <div style="flex:1;min-width:0;">
-          <div style="color:#f90;font-weight:700;font-size:13px;margin-bottom:4px;">アップデートあり v${v}</div>
-          <div id="hc-update-msg" style="color:#aaa;font-size:12px;line-height:1.4;">クリックで更新できます</div>
-        </div>
-        <div id="hc-update-actions" style="display:flex;flex-direction:column;gap:6px;">
-          <button onclick="HubUpdate.start()" style="padding:6px 12px;background:#f90;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">今すぐ更新</button>
-          <button onclick="this.closest('#hc-update-toast').remove()" style="padding:4px 8px;background:transparent;color:#666;border:none;font-size:11px;cursor:pointer;">後で</button>
-        </div>
-      `
-      document.body.appendChild(toast)
-      // ダウンロード中・完了後は自動で消さない。待機中のみ45秒で自動クローズ
-      setTimeout(() => { const t = document.getElementById('hc-update-toast'); if (t && !window.__hubUpdateActive) t.remove() }, 45000)
-    }, 3000)
+    // ③ トースト通知（起動3秒後）— electron-updater検知より先に出る場合の保険
+    setTimeout(() => showUpdateToast(info.latest), 3000)
 
   } catch(e) {
     console.log('[HubChat] version check error:', e)
   }
 }
 document.addEventListener('DOMContentLoaded', showVersionInfo)
+// 起動中も定期的に再チェック（30分ごと）。新版が出たらトーストが出る
+setInterval(() => { showVersionInfo() }, 30 * 60 * 1000)
 
 
 // ============================================

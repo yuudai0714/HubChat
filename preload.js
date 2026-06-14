@@ -85,6 +85,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-download-progress', (event, info) => callback(info)),
   onUpdateDownloaded: (callback) =>
     ipcRenderer.on('update-downloaded', () => callback()),
+  onUpdateError: (callback) =>
+    ipcRenderer.on('update-error', (event, info) => callback(info)),
+  checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
   // マシンID取得（管理者チェック用）
