@@ -461,17 +461,20 @@ async function activateService(id, scroll = true) {
     wv.addEventListener('did-fail-load', e => {
       if (e.errorCode === -3) return
       const ld = document.querySelector(`.loading-wrap[data-for="${id}"]`)
-      if (ld) ld.innerHTML = `
+      if (ld) {
+        ld.innerHTML = `
         <div style="text-align:center;color:var(--text-sub)">
           <div style="font-size:42px;margin-bottom:12px">😵</div>
           <p style="font-size:16px;font-weight:600;margin-bottom:8px">読み込みに失敗しました</p>
           <p style="font-size:13px;margin-bottom:20px">${svc.name}</p>
-          <button onclick="reloadWV('${id}')"
+          <button class="hc-reload-btn"
             style="padding:10px 22px;background:var(--accent);color:#11111b;
                    border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
             再読み込み
           </button>
         </div>`
+        ld.querySelector('.hc-reload-btn')?.addEventListener('click', () => reloadWV(id))
+      }
     })
     document.getElementById('webview-container').appendChild(wv)
   }
@@ -1189,12 +1192,13 @@ function attachCrashRecovery(wv, id) {
         <div style="text-align:center;color:var(--text-sub)">
           <div style="font-size:42px;margin-bottom:12px">😵</div>
           <p style="font-size:16px;font-weight:600;margin-bottom:8px">${name} が繰り返し停止しました</p>
-          <button onclick="reloadWV('${id}')"
+          <button class="hc-reload-btn"
             style="padding:10px 22px;background:var(--accent);color:#11111b;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">
             手動で再読み込み
           </button>
         </div>`
       cont.appendChild(ld)
+      ld.querySelector('.hc-reload-btn')?.addEventListener('click', () => reloadWV(id))
       return
     }
 
@@ -2355,14 +2359,33 @@ const HubUpdate = (function(){
   let state = 'idle' // idle | downloading | downloaded
   let fallbackUrl = null
 
-  function setToastBody(html) {
+  function actionsSlot() {
     const t = document.getElementById('hc-update-toast')
-    if (t) { const slot = t.querySelector('#hc-update-actions'); if (slot) slot.innerHTML = html }
+    return t ? t.querySelector('#hc-update-actions') : null
   }
   function setToastMsg(msg) {
     const t = document.getElementById('hc-update-toast')
     if (t) { const m = t.querySelector('#hc-update-msg'); if (m) m.textContent = msg }
   }
+  // CSP(script-src 'self')でインラインonclickは動かないため、必ずDOM+addEventListenerで作る
+  function clearActions() { const s = actionsSlot(); if (s) s.innerHTML = '' }
+  function addActionButton(label, bg, onClick) {
+    const s = actionsSlot(); if (!s) return null
+    const b = document.createElement('button')
+    b.textContent = label
+    b.style.cssText = `padding:7px 14px;background:${bg};color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;`
+    b.addEventListener('click', onClick)
+    s.appendChild(b)
+    return b
+  }
+  function addActionNote(html) {
+    const s = actionsSlot(); if (!s) return
+    const d = document.createElement('div')
+    d.style.cssText = 'font-size:10px;color:#888;margin-top:5px;line-height:1.4;'
+    d.innerHTML = html
+    s.appendChild(d)
+  }
+  function setActionsText(html) { const s = actionsSlot(); if (s) s.innerHTML = html }
 
   async function start() {
     if (state === 'downloading') return
@@ -2371,9 +2394,8 @@ const HubUpdate = (function(){
     window.__hubUpdateActive = true
     // クリック直後に「動いている」ことを即座に表示（%が来る前のラグ対策）
     setToastMsg('🔄 更新を開始しています…')
-    setToastBody('<span style="display:inline-flex;align-items:center;gap:6px;color:#f90;font-size:12px;font-weight:700;"><span class="hc-spin" style="width:12px;height:12px;border:2px solid #f90;border-top-color:transparent;border-radius:50%;display:inline-block;animation:hcspin 0.7s linear infinite;"></span>更新中…</span><style>@keyframes hcspin{to{transform:rotate(360deg)}}</style>')
+    setActionsText('<span style="display:inline-flex;align-items:center;gap:6px;color:#f90;font-size:12px;font-weight:700;"><span style="width:12px;height:12px;border:2px solid #f90;border-top-color:transparent;border-radius:50%;display:inline-block;animation:hcspin 0.7s linear infinite;"></span>更新中…</span><style>@keyframes hcspin{to{transform:rotate(360deg)}}</style>')
     try {
-      // main側で「最新チェック→DL」をまとめて実行。失敗時は {ok:false} か update-error が返る
       const r = await window.electronAPI.downloadUpdate()
       if (r && r.ok === false) onError(r.error)
     } catch(e) { onError(String(e)) }
@@ -2381,17 +2403,18 @@ const HubUpdate = (function(){
 
   function reinstall() {
     setToastMsg('再起動しています…')
-    setToastBody('<span style="color:#888;font-size:11px;">アプリが閉じて自動で開き直します</span>')
+    setActionsText('<span style="color:#888;font-size:11px;">アプリが閉じて自動で開き直します</span>')
     setTimeout(() => window.electronAPI.quitAndInstall(), 100)
   }
 
   function onError(detail) {
-    if (state === 'downloaded') return // 既に完了していれば無視
+    if (state === 'downloaded') return
     state = 'idle'
     console.log('[HubChat] update error:', detail)
     if (fallbackUrl) {
       setToastMsg('自動更新に失敗。手動DLします')
-      setToastBody(`<a href="${fallbackUrl}" target="_blank" rel="noopener" style="padding:6px 12px;background:#f90;color:#fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;">手動ダウンロード</a>`)
+      clearActions()
+      addActionButton('手動ダウンロード', '#f90', () => window.electronAPI.openExternal(fallbackUrl))
     } else {
       setToastMsg('更新に失敗しました')
     }
@@ -2408,7 +2431,9 @@ const HubUpdate = (function(){
     window.electronAPI.onUpdateDownloaded?.(() => {
       state = 'downloaded'
       setToastMsg('✅ ダウンロード完了')
-      setToastBody('<button onclick="HubUpdate.start()" style="padding:7px 14px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">再起動してインストール</button><div style="font-size:10px;color:#888;margin-top:5px;line-height:1.4;">※押すとアプリが一度閉じ、<br>自動で新バージョンが開きます</div>')
+      clearActions()
+      addActionButton('再起動してインストール', '#4CAF50', reinstall)
+      addActionNote('※押すとアプリが一度閉じ、<br>自動で新バージョンが開きます')
     })
     window.electronAPI.onUpdateError?.((info) => onError(info && info.message))
   }
@@ -2438,6 +2463,7 @@ function showUpdateToast(v) {
     'box-shadow:0 4px 20px rgba(0,0,0,0.5)','max-width:340px',
     'animation:slideInToast 0.3s ease'
   ].join(';')
+  // CSPでインラインonclick不可 → ボタンは後でaddEventListenerで配線
   toast.innerHTML = `
     <style>@keyframes slideInToast{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}</style>
     <div style="font-size:24px;line-height:1;">🔔</div>
@@ -2445,11 +2471,21 @@ function showUpdateToast(v) {
       <div style="color:#f90;font-weight:700;font-size:13px;margin-bottom:4px;">アップデートあり v${v}</div>
       <div id="hc-update-msg" style="color:#aaa;font-size:12px;line-height:1.4;">クリックで自動更新します</div>
     </div>
-    <div id="hc-update-actions" style="display:flex;flex-direction:column;gap:6px;">
-      <button onclick="HubUpdate.start()" style="padding:6px 12px;background:#f90;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">今すぐ更新</button>
-      <button onclick="this.closest('#hc-update-toast').remove()" style="padding:4px 8px;background:transparent;color:#666;border:none;font-size:11px;cursor:pointer;">後で</button>
-    </div>`
+    <div id="hc-update-actions" style="display:flex;flex-direction:column;gap:6px;"></div>`
   document.body.appendChild(toast)
+
+  // ボタンをDOMで生成して配線（CSP安全）
+  const slot = toast.querySelector('#hc-update-actions')
+  const nowBtn = document.createElement('button')
+  nowBtn.textContent = '今すぐ更新'
+  nowBtn.style.cssText = 'padding:6px 12px;background:#f90;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;'
+  nowBtn.addEventListener('click', () => HubUpdate.start())
+  const laterBtn = document.createElement('button')
+  laterBtn.textContent = '後で'
+  laterBtn.style.cssText = 'padding:4px 8px;background:transparent;color:#888;border:none;font-size:11px;cursor:pointer;'
+  laterBtn.addEventListener('click', () => toast.remove())
+  slot.appendChild(nowBtn)
+  slot.appendChild(laterBtn)
 }
 
 // electron-updaterが更新を検知したら（起動中の定期チェック含む）トースト表示
