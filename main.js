@@ -860,7 +860,20 @@ ipcMain.handle('download-update', async () => {
 })
 
 ipcMain.handle('quit-and-install', () => {
-  autoUpdater.quitAndInstall()
+  // 常駐アプリ（macOSでcloseを握りつぶす作り）でも確実に終了→再起動できるよう、
+  // 先に isQuitting を立ててからインストール。これが無いとcloseがブロックされ無反応になる。
+  app.isQuitting = true
+  // 念のため全ウィンドウのcloseを許可状態にしてからインストール再起動
+  setImmediate(() => {
+    try {
+      autoUpdater.quitAndInstall(true, true) // (isSilent, isForceRunAfter)
+    } catch (e) {
+      console.log('[AutoUpdater] quitAndInstall error:', e && e.message)
+      // フォールバック: 手動で再起動
+      app.relaunch()
+      app.exit(0)
+    }
+  })
 })
 
 // --- メインプロセスからのバッジ監視（5秒ごと） ---

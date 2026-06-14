@@ -2366,16 +2366,23 @@ const HubUpdate = (function(){
 
   async function start() {
     if (state === 'downloading') return
-    if (state === 'downloaded') { window.electronAPI.quitAndInstall(); return }
+    if (state === 'downloaded') { reinstall(); return }
     state = 'downloading'
     window.__hubUpdateActive = true
-    setToastMsg('ダウンロード開始…')
-    setToastBody('<span style="color:#888;font-size:11px;">少々お待ちください</span>')
+    // クリック直後に「動いている」ことを即座に表示（%が来る前のラグ対策）
+    setToastMsg('🔄 更新を開始しています…')
+    setToastBody('<span style="display:inline-flex;align-items:center;gap:6px;color:#f90;font-size:12px;font-weight:700;"><span class="hc-spin" style="width:12px;height:12px;border:2px solid #f90;border-top-color:transparent;border-radius:50%;display:inline-block;animation:hcspin 0.7s linear infinite;"></span>更新中…</span><style>@keyframes hcspin{to{transform:rotate(360deg)}}</style>')
     try {
       // main側で「最新チェック→DL」をまとめて実行。失敗時は {ok:false} か update-error が返る
       const r = await window.electronAPI.downloadUpdate()
       if (r && r.ok === false) onError(r.error)
     } catch(e) { onError(String(e)) }
+  }
+
+  function reinstall() {
+    setToastMsg('再起動しています…')
+    setToastBody('<span style="color:#888;font-size:11px;">アプリが閉じて自動で開き直します</span>')
+    setTimeout(() => window.electronAPI.quitAndInstall(), 100)
   }
 
   function onError(detail) {
@@ -2400,8 +2407,8 @@ const HubUpdate = (function(){
     })
     window.electronAPI.onUpdateDownloaded?.(() => {
       state = 'downloaded'
-      setToastMsg('準備完了。クリックで再起動して更新します')
-      setToastBody('<button onclick="HubUpdate.start()" style="padding:7px 14px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">再起動してインストール</button>')
+      setToastMsg('✅ ダウンロード完了')
+      setToastBody('<button onclick="HubUpdate.start()" style="padding:7px 14px;background:#4CAF50;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">再起動してインストール</button><div style="font-size:10px;color:#888;margin-top:5px;line-height:1.4;">※押すとアプリが一度閉じ、<br>自動で新バージョンが開きます</div>')
     })
     window.electronAPI.onUpdateError?.((info) => onError(info && info.message))
   }
