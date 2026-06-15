@@ -709,9 +709,16 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
 }
 @media(max-width:480px){
   .hero h1{font-size:2rem;}
+  h2.section-title{font-size:1.7rem;}
+  .services-grid{grid-template-columns:repeat(3,1fr);gap:7px;}
+  .service-item{padding:12px 5px;}
+  .service-item img{width:26px;height:26px;}
+  .plan{padding:28px 20px;}
+  footer{padding:40px 16px 24px;}
+}
 
 /* ============================================================
-   FF13 worldview × Orange — レイヤード・テーマ強化
+   FF13 worldview × Orange — レイヤード・テーマ強化（最上位・全幅適用）
    ============================================================ */
 body{
   background:
@@ -919,13 +926,6 @@ nav, section, .trust-bar, footer, .mobile-menu{position:relative;z-index:1;}
   .steps-grid{grid-template-columns:1fr;}
   .steps-grid .step-card::after{display:none;}
   .caps-section,.steps-section{padding:60px 18px;}
-}
-  h2.section-title{font-size:1.7rem;}
-  .services-grid{grid-template-columns:repeat(3,1fr);gap:7px;}
-  .service-item{padding:12px 5px;}
-  .service-item img{width:26px;height:26px;}
-  .plan{padding:28px 20px;}
-  footer{padding:40px 16px 24px;}
 }
 </style>
 </head>
