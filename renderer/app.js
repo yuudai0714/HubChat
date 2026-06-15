@@ -27,6 +27,9 @@ const ALL_SERVICES = [
   { id:'gemini',     name:'Gemini',          url:'https://gemini.google.com/app',           category:'ai',          color:'#4285F4', domain:'gemini.google.com', icon:'https://www.gstatic.com/lamda/images/gemini_favicon_f069958c85030456e93de685481c559f160ea06b.png' },
   { id:"chatgpt", name:"ChatGPT", url:"https://chatgpt.com", category:"ai", color:"#10A37F", domain:"chatgpt.com", icon:"https://cdn.oaistatic.com/_next/static/media/apple-touch-icon.59f2e898.png" },
   { id:"notebooklm", name:"NotebookLM", url:"https://notebooklm.google.com/", category:"ai", color:"#FBBC04", domain:"notebooklm.google.com", icon:"https://notebooklm.google.com/favicon.ico" },
+  { id:'claude',     name:'Claude',      url:'https://claude.ai/',          category:'ai', color:'#D97757', domain:'claude.ai' },
+  { id:'perplexity', name:'Perplexity',  url:'https://www.perplexity.ai/',  category:'ai', color:'#20808D', domain:'perplexity.ai' },
+  { id:'grok',       name:'Grok',        url:'https://grok.com/',           category:'ai', color:'#000000', domain:'grok.com' },
   // ── 生産性 ──
   { id:'gcal',       name:'Googleカレンダー',url:'https://calendar.google.com/calendar/',    category:'google',color:'#4285F4', domain:'calendar.google.com', icon:'https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_31_2x.png' },
   { id:'gtasks',     name:'Googleタスク',    url:'https://tasks.google.com/embed/?origin=https://calendar.google.com&fullWidth=1', category:'google',color:'#34A853', domain:'tasks.google.com', icon:'https://ssl.gstatic.com/tasks/images/icon_2022q4_v2/favicon.ico' },
@@ -37,6 +40,7 @@ const ALL_SERVICES = [
   { id:"gdocs",   name:"Googleドキュメント",    url:"https://docs.google.com/document",    category:'google', color:"#4285F4", domain:"docs.google.com", icon:"https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico" },
   { id:"gslides", name:"Googleスライド",        url:"https://docs.google.com/presentation", category:'google', color:"#F4B400", domain:"docs.google.com", icon:"https://ssl.gstatic.com/docs/presentations/images/favicon5.ico" },
   { id:'canva',   name:'Canva',               url:'https://www.canva.com/',              category:'productivity',color:'#00C4CC', domain:'canva.com' },
+  { id:'figma',   name:'Figma',               url:'https://www.figma.com/files',         category:'productivity',color:'#F24E1E', domain:'figma.com' },
   // ── コンテンツ ──
   { id:'note',       name:'note',            url:'https://note.com/dashboard',              category:'content',     color:'#41C9B4', domain:'note.com' },
 ]
