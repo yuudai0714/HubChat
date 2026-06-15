@@ -35,23 +35,27 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&family=Rajdhani:wght@500;600;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css">
 
 <style>
 :root {
-  --bg:     #08080f;
-  --bg2:    #0c0c18;
-  --surface: rgba(255,255,255,0.04);
-  --surface2: rgba(255,255,255,0.07);
-  --border:  rgba(255,255,255,0.08);
+  --bg:     #0a0703;
+  --bg2:    #14100a;
+  --surface: rgba(255,180,90,0.045);
+  --surface2: rgba(255,180,90,0.08);
+  --border:  rgba(247,170,90,0.14);
   --orange:  #f7931e;
   --orange2: #ff6b35;
-  --purple:  #8b5cf6;
-  --purple2: #c4b5fd;
-  --text:    #f4f4f5;
-  --text2:   #a1a1aa;
-  --text3:   #52525b;
+  --gold:    #ffce8a;
+  --amber:   #ffb347;
+  --ember:   linear-gradient(135deg,#ffb347 0%,#f7931e 45%,#ff5e2c 100%);
+  /* FF13世界観: 旧purpleはクリスタル金/琥珀へ再配色 */
+  --purple:  #ffb347;
+  --purple2: #ffe0b0;
+  --text:    #fbf3ea;
+  --text2:   #c9b79f;
+  --text3:   #6b5a44;
   --max:     1100px;
 }
 
@@ -705,6 +709,140 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
 }
 @media(max-width:480px){
   .hero h1{font-size:2rem;}
+
+/* ============================================================
+   FF13 worldview × Orange — レイヤード・テーマ強化
+   ============================================================ */
+body{
+  background:
+    radial-gradient(1100px 600px at 78% -8%, rgba(255,140,50,.16), transparent 60%),
+    radial-gradient(900px 520px at 12% 4%, rgba(255,200,120,.09), transparent 55%),
+    radial-gradient(700px 700px at 50% 120%, rgba(255,94,44,.10), transparent 60%),
+    var(--bg);
+  position:relative;
+}
+/* 結晶グリッド + スキャンライン（薄く全面） */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,179,71,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,179,71,.035) 1px, transparent 1px);
+  background-size:64px 64px;
+  -webkit-mask-image:radial-gradient(ellipse 120% 80% at 50% 0%, #000 30%, transparent 78%);
+  mask-image:radial-gradient(ellipse 120% 80% at 50% 0%, #000 30%, transparent 78%);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 3px, rgba(255,150,60,.012) 3px 4px);
+}
+nav, section, .trust-bar, footer, .mobile-menu{position:relative;z-index:1;}
+
+/* 見出し・ラベルを近未来書体に */
+.nav-logo-text,.hero-eyebrow,.problem-label,.section-label,.faq-label,
+.trust-item,.plan-badge,.compare-label{
+  font-family:'Rajdhani','Noto Sans JP',sans-serif;
+  letter-spacing:.12em;text-transform:uppercase;
+}
+.hero h1,.problem-title,.section-title,.pricing-title,.cta-title,.faq-title,.problem-num,.plan-price{
+  font-family:'Rajdhani','Inter','Noto Sans JP',sans-serif;
+}
+
+/* eyebrow / ラベル：結晶チップ */
+.hero-eyebrow{
+  background:linear-gradient(135deg, rgba(255,179,71,.16), rgba(255,94,44,.10))!important;
+  border:1px solid rgba(255,179,71,.35)!important;
+  color:var(--gold)!important;
+  box-shadow:0 0 24px rgba(255,140,50,.18), inset 0 0 12px rgba(255,179,71,.08);
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+}
+
+/* 見出しグロー */
+.hero h1{
+  text-shadow:0 0 40px rgba(255,140,50,.25);
+}
+.hero h1 em{
+  background:var(--ember);-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;font-style:normal;
+  filter:drop-shadow(0 0 18px rgba(255,120,40,.45));
+}
+
+/* hero グロー（温色クリスタル） */
+.hero-glow{
+  background:radial-gradient(closest-side, rgba(255,140,50,.30), transparent 70%)!important;
+  filter:blur(20px);
+}
+
+/* オレンジ系ボタン → エンバー・グラデ＋角ばり＋発光 */
+.btn-orange,.nav-cta,.dl-btn-primary,.plan-cta-primary{
+  background:var(--ember)!important;color:#1a0e03!important;font-weight:800!important;
+  border:none!important;
+  box-shadow:0 6px 26px rgba(255,107,53,.40), inset 0 1px 0 rgba(255,255,255,.35);
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+  letter-spacing:.02em;
+}
+.btn-orange:hover,.nav-cta:hover,.dl-btn-primary:hover,.plan-cta-primary:hover{
+  filter:brightness(1.08);transform:translateY(-2px);
+  box-shadow:0 10px 34px rgba(255,107,53,.55), inset 0 1px 0 rgba(255,255,255,.4);
+}
+.btn-ghost,.dl-btn-secondary,.plan-cta-secondary{
+  border:1px solid rgba(255,179,71,.4)!important;color:var(--gold)!important;
+  background:rgba(255,179,71,.05)!important;
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+}
+.btn-ghost:hover,.dl-btn-secondary:hover,.plan-cta-secondary:hover{
+  background:rgba(255,179,71,.12)!important;border-color:var(--orange)!important;
+}
+
+/* パネル類：ガラス＋オレンジ縁発光＋角の結晶アクセント */
+.problem-item,.review-card,.service-category,.plan,.faq-item,.compare-table,.mockup-shell,.trust-bar{
+  border:1px solid rgba(255,179,71,.14)!important;
+  background:linear-gradient(160deg, rgba(255,179,71,.05), rgba(255,255,255,.015))!important;
+  position:relative;
+}
+.problem-item:hover,.review-card:hover,.service-category:hover,.plan:hover{
+  border-color:rgba(255,179,71,.4)!important;
+  box-shadow:0 0 30px rgba(255,120,40,.12);
+}
+.plan.featured{
+  border-color:rgba(255,140,50,.5)!important;
+  box-shadow:0 0 48px rgba(255,120,40,.22);
+}
+.service-item{border:1px solid rgba(255,179,71,.1)!important;}
+.service-item:hover{border-color:rgba(255,179,71,.45)!important;box-shadow:0 0 18px rgba(255,120,40,.18);}
+/* 角の結晶ライン（左上） */
+.problem-item::after,.service-category::after,.review-card::after,.plan::after{
+  content:"";position:absolute;top:0;left:0;width:14px;height:14px;
+  border-top:2px solid var(--orange);border-left:2px solid var(--orange);
+  opacity:.5;pointer-events:none;
+}
+
+/* 番号（problem-num）を結晶発光 */
+.problem-num{
+  background:var(--ember)!important;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent!important;color:transparent!important;
+  filter:drop-shadow(0 0 10px rgba(255,120,40,.4));
+  font-weight:800;letter-spacing:.04em;
+}
+
+/* trust-bar アイコン */
+.trust-item i{color:var(--amber)!important;filter:drop-shadow(0 0 8px rgba(255,140,50,.4));}
+.trust-item strong{color:var(--gold)!important;}
+
+/* nav ロゴ発光 */
+.nav-logo-text{color:var(--gold)!important;text-shadow:0 0 14px rgba(255,150,60,.3);}
+
+/* セクション見出しのアクセント線（角ばり） */
+.problem-label,.section-label,.faq-label{
+  color:var(--orange)!important;
+}
+
+/* リンク・アクセント文字 */
+.hero-sub strong{color:var(--gold)!important;}
+
+/* スクロールバー */
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:#0a0703;}
+::-webkit-scrollbar-thumb{background:linear-gradient(var(--orange),var(--orange2));border-radius:6px;}
   h2.section-title{font-size:1.7rem;}
   .services-grid{grid-template-columns:repeat(3,1fr);gap:7px;}
   .service-item{padding:12px 5px;}
@@ -1483,7 +1621,7 @@ h2.section-title{font-size:clamp(1.9rem,4vw,3rem);font-weight:900;letter-spacing
 
 // DOWNLOAD LINKS
 (async function(){
-  try{const r=await fetch('https://api.github.com/repos/yuudai0714/HubChat/releases/latest');const d=await r.json();const v=d.tag_name.replace('v','');const b='https://github.com/yuudai0714/HubChat/releases/latest/download/';document.getElementById('dl-mac-arm').href=b+'HubChat-'+v+'-arm64.dmg';document.getElementById('dl-mac-intel').href=b+'HubChat-'+v+'.dmg';document.getElementById('dl-win').href=b+'HubChat%20Setup%20'+v+'.exe';}catch(e){}
+  try{const r=await fetch('https://api.github.com/repos/yuudai0714/HubChat/releases/latest');const d=await r.json();const v=d.tag_name.replace('v','');const b='https://github.com/yuudai0714/HubChat/releases/latest/download/';document.getElementById('dl-mac-arm').href=b+'HubChat-'+v+'-arm64.dmg';document.getElementById('dl-mac-intel').href=b+'HubChat-'+v+'.dmg';document.getElementById('dl-win').href=b+'HubChat-Setup-'+v+'.exe';}catch(e){}
 })();
 
 // #download へのアンカーリンクを "確実に" スムーススクロールする
